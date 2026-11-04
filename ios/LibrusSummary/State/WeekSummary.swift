@@ -59,6 +59,7 @@ struct WeekSummary {
     /// Events teachers added to the calendar during this week, whatever day they are on.
     let addedEvents: [EventItem]
     let announcements: [Announcement]
+    let messages: [MessageSummary]
     let luckyNumber: LuckyNumber?
 
     init(start: Day, data: StudentData, timetable: [TimetableDay]?) {
@@ -108,6 +109,10 @@ struct WeekSummary {
             (a.startDay.map { $0 <= end } ?? true)
                 && (a.endDay.map { $0 >= start } ?? true)
                 && (a.startDay.map { $0 >= cutoff } ?? true)
+        }
+        messages = data.messages.filter { m in
+            guard let day = Day(String(m.date.prefix(10))) else { return true }
+            return day >= cutoff
         }
         luckyNumber = data.luckyNumber.flatMap { $0.day >= start && $0.day <= end ? $0 : nil }
     }

@@ -68,6 +68,22 @@ struct SideBySideList: View {
             }
 
             do {
+                let msgSplit = splitMessages(ids: ids, summaries: summaries)
+                let hasPerKidMsg = ids.contains { !(msgSplit.perKid[$0]?.isEmpty ?? true) }
+                if hasPerKidMsg || !msgSplit.shared.isEmpty {
+                    Section("Messages") {
+                        if hasPerKidMsg {
+                            Columns(ids: ids) { id in
+                                MessagesAccordion(items: msgSplit.perKid[id] ?? [], label: nil)
+                            }
+                        }
+                        if !msgSplit.shared.isEmpty {
+                            MessagesAccordion(items: msgSplit.shared, label: "Shared")
+                        }
+                    }
+                }
+            }
+            do {
                 let split = splitAnnouncements(ids: ids, summaries: summaries, model: model)
                 let hasPerKid = ids.contains { !(split.perKid[$0]?.isEmpty ?? true) }
                 if hasPerKid || !split.shared.isEmpty {
@@ -562,4 +578,98 @@ private func splitAnnouncements(ids: [UUID], summaries: [UUID: WeekSummary], mod
 
     return AnnouncementSplit(perKid: perKid, perKidNewIDs: perKidNewIDs,
                              shared: shared, sharedNewIDs: sharedNewIDs)
+}
+
+// MARK: - Direct messages (Synergia inbox)
+
+private struct MessagesAccordion: View {
+    let items: [MessageSummary]
+    var label: String? = nil
+    @State private var expanded = false
+
+    var body: some View {
+        if items.isEmpty {
+            Text("None").font(.caption).foregroundStyle(.secondary)
+        } else {
+            VStack(alignment: .leading, spacing: 4) {
+                Button { withAnimation { expanded.toggle() } } label: {
+                    HStack(spacing: 4) {
+                        let count = items.count == 1 ? "1 message" : "\(items.count) messages"
+                        Text(label.map { "\($0): \(count)" } ?? count)
+                            .font(.caption.weight(.semibold))
+                        let unread = items.filter { $0.unread }.count
+                        if unread > 0 { NewBadge() }
+                        Spacer(minLength: 2)
+                        Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.primary)
+
+                if expanded {
+                    ForEach(items) { m in
+                        VStack(alignment: .leading, spacing: 1) {
+                            HStack(spacing: 4) {
+                                Text(m.subject)
+                                    .font(.caption.weight(.semibold))
+                                    .multilineTextAlignment(.leading)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                if m.unread { NewBadge() }
+                                if m.hasAttachments {
+                                    Image(systemName: "paperclip")
+                                        .font(.caption2).foregroundStyle(.secondary)
+                                }
+                            }
+                            Text("\(m.correspondent) · \(m.date)")
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
+                        .padding(.leading, 4)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct MessageSplit {
+    var perKid: [UUID: [MessageSummary]]
+    var shared: [MessageSummary]
+}
+
+/// Messages that arrived with the same subject, sender and day are treated as the same
+/// (common pattern: class-wide notes sent to every pupil).
+@MainActor
+private func splitMessages(ids: [UUID], summaries: [UUID: WeekSummary]) -> MessageSplit {
+    func key(_ m: MessageSummary) -> String {
+        "\(m.subject)|\(m.correspondent)|\(m.date.prefix(10))"
+    }
+    var byKid: [UUID: [MessageSummary]] = [:]
+    for id in ids { byKid[id] = summaries[id]?.messages ?? [] }
+
+    var keyToKids: [String: Set<UUID>] = [:]
+    var exemplar: [String: MessageSummary] = [:]
+    for id in ids {
+        for m in byKid[id] ?? [] {
+            let k = key(m)
+            keyToKids[k, default: []].insert(id)
+            if exemplar[k] == nil { exemplar[k] = m }
+        }
+    }
+
+    let allKids = Set(ids)
+    var sharedKeys: Set<String> = []
+    var shared: [MessageSummary] = []
+    for (k, kids) in keyToKids where kids == allKids {
+        sharedKeys.insert(k)
+        shared.append(exemplar[k]!)
+    }
+    shared.sort { $0.date > $1.date }
+
+    var perKid: [UUID: [MessageSummary]] = [:]
+    for id in ids {
+        perKid[id] = (byKid[id] ?? []).filter { !sharedKeys.contains(key($0)) }
+    }
+    return MessageSplit(perKid: perKid, shared: shared)
 }

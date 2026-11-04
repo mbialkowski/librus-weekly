@@ -213,6 +213,7 @@ public struct StudentData: Codable, Sendable {
     public var attendance: [AttendanceEntry]
     public var notices: [Notice]
     public var announcements: [Announcement]
+    public var messages: [MessageSummary]
     public var luckyNumber: LuckyNumber?
     public var timetable: [String: [TimetableDay]]
     /// Sections that failed to load (shown, but don't block the rest).
@@ -221,6 +222,7 @@ public struct StudentData: Codable, Sendable {
     public init(fetchedAt: Date = Date(), studentName: String? = nil, accountName: String? = nil,
                 subjects: [Subject] = [], grades: [Grade] = [], events: [AgendaEvent] = [],
                 attendance: [AttendanceEntry] = [], notices: [Notice] = [], announcements: [Announcement] = [],
+                messages: [MessageSummary] = [],
                 luckyNumber: LuckyNumber? = nil, timetable: [String: [TimetableDay]] = [:], warnings: [String] = []) {
         self.fetchedAt = fetchedAt
         self.studentName = studentName
@@ -231,8 +233,31 @@ public struct StudentData: Codable, Sendable {
         self.attendance = attendance
         self.notices = notices
         self.announcements = announcements
+        self.messages = messages
         self.luckyNumber = luckyNumber
         self.timetable = timetable
         self.warnings = warnings
+    }
+
+    /// Default so decoding old cached JSON (without `messages`) keeps working.
+    enum CodingKeys: String, CodingKey {
+        case fetchedAt, studentName, accountName, subjects, grades, events, attendance,
+             notices, announcements, messages, luckyNumber, timetable, warnings
+    }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        fetchedAt = try c.decode(Date.self, forKey: .fetchedAt)
+        studentName = try c.decodeIfPresent(String.self, forKey: .studentName)
+        accountName = try c.decodeIfPresent(String.self, forKey: .accountName)
+        subjects = try c.decodeIfPresent([Subject].self, forKey: .subjects) ?? []
+        grades = try c.decodeIfPresent([Grade].self, forKey: .grades) ?? []
+        events = try c.decodeIfPresent([AgendaEvent].self, forKey: .events) ?? []
+        attendance = try c.decodeIfPresent([AttendanceEntry].self, forKey: .attendance) ?? []
+        notices = try c.decodeIfPresent([Notice].self, forKey: .notices) ?? []
+        announcements = try c.decodeIfPresent([Announcement].self, forKey: .announcements) ?? []
+        messages = try c.decodeIfPresent([MessageSummary].self, forKey: .messages) ?? []
+        luckyNumber = try c.decodeIfPresent(LuckyNumber.self, forKey: .luckyNumber)
+        timetable = try c.decodeIfPresent([String: [TimetableDay]].self, forKey: .timetable) ?? [:]
+        warnings = try c.decodeIfPresent([String].self, forKey: .warnings) ?? []
     }
 }

@@ -216,6 +216,11 @@ final class AppModel {
             } catch {
                 fresh.warnings.append("Homework: \(error.localizedDescription)")
             }
+            do {
+                fresh.messages = try await client.synergia.messages(.inbox, page: 0)
+            } catch {
+                fresh.warnings.append("Messages: \(error.localizedDescription)")
+            }
             guard clients[id] === client, var state = states[id] else { return }
             synced.insert(id)
             if let old = state.data {
