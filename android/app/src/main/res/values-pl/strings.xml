@@ -25,6 +25,14 @@
     <string name="not_everything_loaded">Nie wszystko się załadowało</string>
     <string name="no_data">Brak danych.</string>
     <string name="language">Język</string>
-    <string name="settings_language_note">Śledzi język urządzenia. Zmień język telefonu na polski lub angielski, aby przełączyć.</string>
+    <string name="settings_language_note">Zmiany wchodzą od razu. „Systemowy” używa języka urządzenia.</string>
     <string name="settings_footer">Librus Tygodniowy, aplikacja nieoficjalna. Niezwiązana z Librus sp. z o.o.</string>
+    <string name="all_children">Wszystkie dzieci</string>
+    <string name="side_by_side">Obok siebie</string>
+    <string name="this_week_heading">Ten tydzień</string>
+    <string name="refreshing">Odświeżanie…</string>
+    <string name="loading">Ładowanie…</string>
+    <string name="none">Brak</string>
+    <string name="no_changes">Brak zmian</string>
+    <string name="no_changes_since_update">Brak zmian od ostatniej aktualizacji.</string>
 </resources>

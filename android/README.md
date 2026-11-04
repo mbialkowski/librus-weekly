@@ -1,23 +1,23 @@
 # Librus Tygodniowy — Android
 
-Aplikacja w Jetpack Compose. Klient API Librusa jest już w Kotlinie, a ekran tygodnia pokazuje prawdziwe dane. Jest prostsza niż wersja iOS — brak widoku „obok siebie”, brak trwałej pamięci podręcznej danych, brak przełącznika języka w ustawieniach (język idzie za językiem telefonu).
+Aplikacja w Jetpack Compose. Klient API Librusa jest w Kotlinie, a wszystkie główne widoki pokazują prawdziwe dane — z wersją iOS różni ją tylko brak konfiguracji podpisu release.
 
 ## Co działa
 
 - Logowanie Synergia (`1234567u` + hasło rodzica); konta szyfrowane w `EncryptedSharedPreferences`.
 - Wiele dzieci, przełączanie z menu, dodawanie i usuwanie.
-- Widok tygodnia: nawigacja, przegląd (oceny / sprawdziany / odwołane / ogłoszenia / szczęśliwy numerek), nowe oceny, odwołane lekcje, wydarzenia dodane w tym tygodniu, dni (lekcje i wydarzenia), ogłoszenia, ostrzeżenia.
+- **Widok tygodnia**: nawigacja, przegląd (oceny / sprawdziany / odwołane / ogłoszenia / szczęśliwy numerek), nowe oceny, odwołane lekcje, wydarzenia dodane w tym tygodniu, dni (lekcje i wydarzenia), ogłoszenia, ostrzeżenia.
+- **Widok „obok siebie”**: rodzeństwo w kolumnach, dotknięcie imienia przełącza na widok pojedynczego dziecka.
+- **„Co się zmieniło”**: dyf między ostatnim a świeżym pobraniem — nowe oceny, nowe i zmienione wydarzenia, zmiany w planie, nowe ogłoszenia; na pozycjach pojawia się znacznik NEW.
+- **Trwały cache**: ostatnio pobrane `StudentData` i rekord zmian zapisywane do pamięci wewnętrznej (`files/cache/<id>.json`). Aplikacja otwiera się od razu z tym, co ostatnio pobrała.
+- **Przełącznik języka** w Ustawieniach (Systemowy / English / Polski) przez `AppCompatDelegate.setApplicationLocales`.
 - Zadania domowe scrapowane ze strony „Moje zadania” i wrzucane jako wydarzenia na dzień oddania.
 - Ogłoszenia starsze niż 30 dni są filtrowane (jak na iOS).
-- Strings `values/` (angielski) + `values-pl/` (polski) — system wybiera na podstawie języka telefonu.
 
 ## Czego jeszcze nie ma
 
-- Widok obok siebie (porównanie rodzeństwa w kolumnach) — tylko iOS.
-- Trwały cache danych (zapis `StudentData` na dysku) — teraz tylko w pamięci, ginie przy zamknięciu aplikacji.
-- Śledzenie zmian („co nowego od ostatniej aktualizacji”) — brak.
-- Przełącznik języka w ustawieniach (iOS → System / English / Polski) — tu idzie za systemem.
-- Konfiguracja podpisu dla buildu release.
+- Konfiguracja podpisu (`signingConfigs.release`) dla buildu wydawniczego.
+- Widżety ekranu głównego, powiadomienia push, synchronizacja w tle.
 
 ## Jak zbudować
 

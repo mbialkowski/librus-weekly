@@ -25,6 +25,14 @@
     <string name="not_everything_loaded">Not everything loaded</string>
     <string name="no_data">No data yet.</string>
     <string name="language">Language</string>
-    <string name="settings_language_note">Follows the device language. Set your phone to Polish or English to switch.</string>
+    <string name="settings_language_note">Changes apply immediately. “System” follows the device language.</string>
     <string name="settings_footer">Librus Weekly, unofficial app. Not affiliated with Librus sp. z o.o.</string>
+    <string name="all_children">All children</string>
+    <string name="side_by_side">Side by side</string>
+    <string name="this_week_heading">This week</string>
+    <string name="refreshing">Refreshing…</string>
+    <string name="loading">Loading…</string>
+    <string name="none">None</string>
+    <string name="no_changes">No changes</string>
+    <string name="no_changes_since_update">No changes since the last update.</string>
 </resources>

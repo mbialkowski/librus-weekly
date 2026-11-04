@@ -39,17 +39,16 @@ fun AppRoot(vm: AppViewModel = viewModel()) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(state.current?.shortName ?: stringResource(R.string.app_name)) },
+                title = { Text(titleFor(state)) },
                 navigationIcon = {
-                    if (state.isLoggedIn) {
-                        ChildMenu(
-                            state = state,
-                            onSelect = vm::select,
-                            onAdd = { showAddChild = true },
-                            onRemove = { confirmRemove = true },
-                            onSettings = { showSettings = true }
-                        )
-                    }
+                    if (state.isLoggedIn) ChildMenu(
+                        state = state,
+                        onSelect = vm::select,
+                        onSideBySide = vm::setSideBySide,
+                        onAdd = { showAddChild = true },
+                        onRemove = { confirmRemove = true },
+                        onSettings = { showSettings = true }
+                    )
                 },
                 actions = {
                     if (state.isLoggedIn) {
@@ -68,39 +67,36 @@ fun AppRoot(vm: AppViewModel = viewModel()) {
     ) { padding ->
         Box(Modifier.padding(padding).fillMaxSize()) {
             when {
-                !state.isLoggedIn -> LoginScreen(
-                    isAdding = false,
-                    onSubmit = { login, password, onError -> vm.addAccount(login, password, onError) }
-                )
+                !state.isLoggedIn -> LoginScreen(isAdding = false) { login, pw, onError ->
+                    vm.addAccount(login, pw, onError)
+                }
+                state.showsSideBySide -> SideBySideScreen(state = state, onWeek = vm::setWeek, onSelectChild = { id ->
+                    vm.setSideBySide(false); vm.select(id)
+                })
                 else -> WeekScreen(state = state, onWeek = vm::setWeek)
             }
         }
     }
 
-    if (showAddChild) {
-        ModalBottomSheet(onDismissRequest = { showAddChild = false }) {
-            LoginScreen(
-                isAdding = true,
-                onSubmit = { login, password, onError ->
-                    vm.addAccount(login, password) { onError(it) }
-                    showAddChild = false
-                }
-            )
+    if (showAddChild) ModalBottomSheet(onDismissRequest = { showAddChild = false }) {
+        LoginScreen(isAdding = true) { login, pw, onError ->
+            vm.addAccount(login, pw) { onError(it) }
+            showAddChild = false
         }
     }
 
-    if (showSettings) {
-        ModalBottomSheet(onDismissRequest = { showSettings = false }) {
-            SettingsScreen()
-        }
+    if (showSettings) ModalBottomSheet(onDismissRequest = { showSettings = false }) {
+        SettingsScreen(current = vm.settings.language, onLanguage = vm::setLanguage)
     }
 
     if (confirmRemove && state.current != null) {
         val name = state.current!!.shortName
         AlertDialog(
             onDismissRequest = { confirmRemove = false },
-            title = { Text(if (state.accounts.size > 1) stringResource(R.string.remove_child_title, name)
-                           else stringResource(R.string.log_out_title)) },
+            title = {
+                Text(if (state.accounts.size > 1) stringResource(R.string.remove_child_title, name)
+                     else stringResource(R.string.log_out_title))
+            },
             confirmButton = {
                 TextButton(onClick = { vm.removeCurrent(); confirmRemove = false }) {
                     Text(if (state.accounts.size > 1) stringResource(R.string.remove)
@@ -113,9 +109,17 @@ fun AppRoot(vm: AppViewModel = viewModel()) {
 }
 
 @Composable
+private fun titleFor(state: AppUiState): String {
+    if (!state.isLoggedIn) return stringResource(R.string.app_name)
+    if (state.showsSideBySide) return stringResource(R.string.all_children)
+    return state.current?.shortName ?: stringResource(R.string.app_name)
+}
+
+@Composable
 private fun ChildMenu(
     state: AppUiState,
     onSelect: (java.util.UUID) -> Unit,
+    onSideBySide: (Boolean) -> Unit,
     onAdd: () -> Unit,
     onRemove: () -> Unit,
     onSettings: () -> Unit
@@ -130,10 +134,20 @@ private fun ChildMenu(
             DropdownMenuItem(
                 text = { Text(acct.shortName) },
                 leadingIcon = {
-                    if (acct.id == state.selectedId) Icon(Icons.Default.Check, null)
+                    if (acct.id == state.selectedId && !state.showsSideBySide) Icon(Icons.Default.Check, null)
                     else Spacer(Modifier.size(24.dp))
                 },
                 onClick = { onSelect(acct.id); open = false }
+            )
+        }
+        if (state.accounts.size > 1) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.side_by_side)) },
+                leadingIcon = {
+                    if (state.showsSideBySide) Icon(Icons.Default.Check, null)
+                    else Icon(Icons.Default.ViewColumn, null)
+                },
+                onClick = { onSideBySide(true); open = false }
             )
         }
         HorizontalDivider()
@@ -142,7 +156,7 @@ private fun ChildMenu(
             leadingIcon = { Icon(Icons.Default.PersonAdd, null) },
             onClick = { onAdd(); open = false }
         )
-        if (state.current != null) {
+        if (state.current != null && !state.showsSideBySide) {
             DropdownMenuItem(
                 text = { Text(if (state.accounts.size > 1) stringResource(R.string.remove_child)
                               else stringResource(R.string.log_out)) },
@@ -194,12 +208,8 @@ private fun LoginScreen(isAdding: Boolean, onSubmit: (String, String, (String) -
         Button(
             onClick = {
                 if (login.isBlank() || password.isBlank() || submitting) return@Button
-                submitting = true
-                error = null
-                onSubmit(login.trim(), password) {
-                    error = it
-                    submitting = false
-                }
+                submitting = true; error = null
+                onSubmit(login.trim(), password) { error = it; submitting = false }
             },
             enabled = !submitting && login.isNotBlank() && password.isNotBlank(),
             modifier = Modifier.fillMaxWidth()
@@ -211,17 +221,21 @@ private fun LoginScreen(isAdding: Boolean, onSubmit: (String, String, (String) -
     }
 }
 
+// MARK: Single child
+
 @Composable
 private fun WeekScreen(state: AppUiState, onWeek: (Day) -> Unit) {
-    val summary = state.data?.let { WeekSummary(state.week, it, it.timetable[state.week.string]) }
+    val data = state.data
+    val summary = data?.let { WeekSummary(state.week, it, it.timetable[state.week.string]) }
+    val changes = state.changes
+    val newGradeIds = changes?.newGradeIds.orEmpty()
+    val newAnnIds = changes?.newAnnouncementIds.orEmpty()
+    val highlighted = changes?.highlightedEventIds.orEmpty()
 
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item { Spacer(Modifier.height(8.dp)) }
         item { WeekNavigator(state.week, onWeek) }
-
-        state.error?.let { err ->
-            item { ErrorBanner(err) }
-        }
+        state.error?.let { err -> item { ErrorBanner(err) } }
 
         if (summary == null) {
             item {
@@ -233,44 +247,239 @@ private fun WeekScreen(state: AppUiState, onWeek: (Day) -> Unit) {
             return@LazyColumn
         }
 
+        changes?.let { item { ChangesSummary(it) } }
         item { OverviewCard(summary) }
-
-        if (state.data!!.warnings.isNotEmpty()) {
-            item { WarningsCard(state.data!!.warnings) }
-        }
+        if (data!!.warnings.isNotEmpty()) item { WarningsCard(data.warnings) }
 
         if (summary.grades.isNotEmpty()) {
             item { SectionHeader(stringResource(R.string.new_grades)) }
-            items(summary.grades, key = { it.id }) { GradeRow(it) }
+            items(summary.grades, key = { it.id }) { GradeRow(it, isNew = it.id in newGradeIds) }
         }
-
         if (summary.cancelled.isNotEmpty()) {
             item { SectionHeader(stringResource(R.string.cancelled_lessons)) }
             items(summary.cancelled, key = { it.id }) { CancelledRow(it) }
         }
-
         if (summary.addedEvents.isNotEmpty()) {
             item { SectionHeader(stringResource(R.string.added_this_week)) }
-            items(summary.addedEvents, key = { it.id }) { EventRow(it, showDay = true) }
+            items(summary.addedEvents, key = { it.id }) { EventRow(it, showDay = true, isNew = it.id in highlighted) }
         }
 
         summary.days.forEach { day ->
             item { SectionHeader(day.day.string, isToday = day.day == Day.today) }
-            items(day.events, key = { it.id }) { EventRow(it, showDay = false) }
+            items(day.events, key = { it.id }) { EventRow(it, showDay = false, isNew = it.id in highlighted) }
             items(day.lessons, key = { it.id }) { LessonRow(it) }
-            if (day.events.isEmpty() && day.lessons.isEmpty()) {
-                item { EmptyDay(summary.hasTimetable) }
-            }
+            if (day.events.isEmpty() && day.lessons.isEmpty()) item { EmptyDay(summary.hasTimetable) }
         }
 
         if (summary.announcements.isNotEmpty()) {
             item { SectionHeader(stringResource(R.string.announcements)) }
-            items(summary.announcements, key = { it.id }) { AnnouncementRow(it) }
+            items(summary.announcements, key = { it.id }) { AnnouncementRow(it, isNew = it.id in newAnnIds) }
         }
-
         item { Spacer(Modifier.height(32.dp)) }
     }
 }
+
+// MARK: Side by side
+
+@Composable
+private fun SideBySideScreen(state: AppUiState, onWeek: (Day) -> Unit, onSelectChild: (java.util.UUID) -> Unit) {
+    val accounts = state.accounts
+    val summaries: Map<java.util.UUID, WeekSummary> = accounts.mapNotNull { a ->
+        val data = state.datas[a.id] ?: return@mapNotNull null
+        a.id to WeekSummary(state.week, data, data.timetable[state.week.string])
+    }.toMap()
+
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        item { Spacer(Modifier.height(8.dp)) }
+        item { WeekNavigator(state.week, onWeek) }
+
+        item {
+            SideColumns(accounts.map { it.id }) { id ->
+                val acct = accounts.first { it.id == id }
+                TextButton(onClick = { onSelectChild(id) }) {
+                    Column(horizontalAlignment = Alignment.Start) {
+                        Text(acct.shortName, fontWeight = FontWeight.SemiBold)
+                        if (id in state.loadingIds) Text(stringResource(R.string.refreshing),
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                    }
+                }
+            }
+        }
+
+        item { SectionHeader(stringResource(R.string.this_week_heading)) }
+        item {
+            SideColumns(accounts.map { it.id }) { id ->
+                val s = summaries[id]
+                val ch = state.allChanges[id]
+                ChildOverviewColumn(s, ch)
+            }
+        }
+
+        val gradesByChild = accounts.associate { it.id to (summaries[it.id]?.grades ?: emptyList()) }
+        if (gradesByChild.values.any { it.isNotEmpty() }) {
+            item { SectionHeader(stringResource(R.string.new_grades)) }
+            item {
+                SideColumns(accounts.map { it.id }) { id ->
+                    GradesColumn(gradesByChild[id].orEmpty(), state.allChanges[id]?.newGradeIds.orEmpty())
+                }
+            }
+        }
+
+        // Day-by-day grid.
+        val visibleDays = daysUnion(summaries, state.week)
+        visibleDays.forEach { day ->
+            item { SectionHeader(day.string, isToday = day == Day.today) }
+            item {
+                SideColumns(accounts.map { it.id }) { id ->
+                    val s = summaries[id]
+                    val highlighted = state.allChanges[id]?.highlightedEventIds.orEmpty()
+                    DayColumn(s, day, highlighted)
+                }
+            }
+        }
+
+        val annsByChild = accounts.associate { it.id to (summaries[it.id]?.announcements ?: emptyList()) }
+        if (annsByChild.values.any { it.isNotEmpty() }) {
+            item { SectionHeader(stringResource(R.string.announcements)) }
+            item {
+                SideColumns(accounts.map { it.id }) { id ->
+                    AnnouncementsLink(count = annsByChild[id]?.size ?: 0,
+                                      newCount = state.allChanges[id]?.newAnnouncementIds?.size ?: 0,
+                                      onTap = { onSelectChild(id) })
+                }
+            }
+        }
+        item { Spacer(Modifier.height(32.dp)) }
+    }
+}
+
+private fun daysUnion(summaries: Map<java.util.UUID, WeekSummary>, week: Day): List<Day> {
+    val busyDays = summaries.values.flatMap { s -> s.days.map { it.day } }.toSet()
+    return (0..6).mapNotNull { offset ->
+        val d = week.adding(offset)
+        if (offset < 5 || d in busyDays) d else null
+    }
+}
+
+@Composable
+private fun SideColumns(ids: List<java.util.UUID>, content: @Composable (java.util.UUID) -> Unit) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ids.forEachIndexed { i, id ->
+            if (i > 0) VerticalDivider(Modifier.height(80.dp))
+            Box(Modifier.weight(1f), contentAlignment = Alignment.TopStart) { content(id) }
+        }
+    }
+}
+
+@Composable
+private fun ChildOverviewColumn(summary: WeekSummary?, changes: UpdateChanges?) {
+    if (summary == null) {
+        Text(stringResource(R.string.loading), style = MaterialTheme.typography.bodySmall,
+             color = MaterialTheme.colorScheme.outline)
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        OverviewLine(summary.grades.size, "nowa ocena", "nowe oceny", "nowych ocen")
+        OverviewLine(summary.eventCount, "sprawdzian", "sprawdziany", "sprawdzianów")
+        if (summary.hasTimetable) {
+            OverviewLine(summary.cancelled.size, "odwołana lekcja", "odwołane lekcje", "odwołanych lekcji")
+        }
+        OverviewLine(summary.announcements.size, "ogłoszenie", "ogłoszenia", "ogłoszeń")
+        summary.luckyNumber?.let {
+            Text("Numerek ${it.number}", style = MaterialTheme.typography.bodySmall,
+                 color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+        }
+        changes?.let {
+            Text(if (it.count == 0) stringResource(R.string.no_changes) else "${it.count} zmian",
+                 style = MaterialTheme.typography.labelSmall,
+                 color = if (it.count == 0) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary)
+        }
+    }
+}
+
+@Composable
+private fun OverviewLine(n: Int, one: String, few: String, many: String) {
+    Text(pl(n, one, few, many), style = MaterialTheme.typography.bodySmall,
+         color = if (n == 0) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface)
+}
+
+@Composable
+private fun GradesColumn(grades: List<NewGrade>, newIds: Set<Int>) {
+    if (grades.isEmpty()) {
+        Text(stringResource(R.string.none), style = MaterialTheme.typography.bodySmall,
+             color = MaterialTheme.colorScheme.outline)
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        grades.forEach { g ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(g.grade.name, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(6.dp))
+                Text(g.subject ?: "Przedmiot", style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                if (g.id in newIds) { Spacer(Modifier.width(4.dp)); NewBadge() }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DayColumn(summary: WeekSummary?, day: Day, highlighted: Set<Int>) {
+    val entry = summary?.days?.firstOrNull { it.day == day }
+    if (entry == null) {
+        Text(if (summary == null) stringResource(R.string.loading) else "—",
+             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        entry.events.forEach { item ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AssistChip(onClick = {}, label = { Text(item.event.category, fontSize = 10.sp) },
+                           modifier = Modifier.height(20.dp))
+                if (item.id in highlighted) { Spacer(Modifier.width(4.dp)); NewBadge() }
+            }
+            item.event.subject?.let { Text(it, style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.SemiBold, maxLines = 1) }
+        }
+        entry.lessons.forEach { l ->
+            val color = when (l.kind) {
+                LessonKind.NORMAL -> MaterialTheme.colorScheme.onSurface
+                LessonKind.CANCELLED, LessonKind.SHIFTED_SOURCE -> MaterialTheme.colorScheme.error
+                else -> Color(0xFFD97706)
+            }
+            Row {
+                Text("${l.number}", style = MaterialTheme.typography.bodySmall,
+                     color = MaterialTheme.colorScheme.outline,
+                     modifier = Modifier.width(14.dp))
+                Text(l.subject ?: "Lekcja", style = MaterialTheme.typography.bodySmall,
+                     color = color,
+                     textDecoration = if (l.kind == LessonKind.CANCELLED || l.kind == LessonKind.SHIFTED_SOURCE)
+                                        TextDecoration.LineThrough else null,
+                     maxLines = 1)
+            }
+        }
+        if (entry.events.isEmpty() && entry.lessons.isEmpty()) {
+            Text(if (summary.hasTimetable) "Brak lekcji" else "Ładowanie…",
+                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+        }
+    }
+}
+
+@Composable
+private fun AnnouncementsLink(count: Int, newCount: Int, onTap: () -> Unit) {
+    if (count == 0) {
+        Text(stringResource(R.string.none), style = MaterialTheme.typography.bodySmall,
+             color = MaterialTheme.colorScheme.outline)
+        return
+    }
+    TextButton(onClick = onTap) {
+        Text(pl(count, "ogłoszenie", "ogłoszenia", "ogłoszeń"), fontWeight = FontWeight.SemiBold)
+        if (newCount > 0) { Spacer(Modifier.width(4.dp)); NewBadge() }
+        Spacer(Modifier.weight(1f))
+        Icon(Icons.Default.ChevronRight, null, modifier = Modifier.size(16.dp))
+    }
+}
+
+// MARK: Shared rows
 
 @Composable
 private fun WeekNavigator(week: Day, onWeek: (Day) -> Unit) {
@@ -278,9 +487,7 @@ private fun WeekNavigator(week: Day, onWeek: (Day) -> Unit) {
         Row(Modifier.fillMaxWidth().padding(8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween) {
-            IconButton(onClick = { onWeek(week.adding(-7)) }) {
-                Icon(Icons.Default.ChevronLeft, null)
-            }
+            IconButton(onClick = { onWeek(week.adding(-7)) }) { Icon(Icons.Default.ChevronLeft, null) }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("${week.string} – ${week.adding(6).string}", fontWeight = FontWeight.SemiBold)
                 if (week != Day.defaultTimetableWeek) {
@@ -289,21 +496,43 @@ private fun WeekNavigator(week: Day, onWeek: (Day) -> Unit) {
                     }
                 }
             }
-            IconButton(onClick = { onWeek(week.adding(7)) }) {
-                Icon(Icons.Default.ChevronRight, null)
-            }
+            IconButton(onClick = { onWeek(week.adding(7)) }) { Icon(Icons.Default.ChevronRight, null) }
         }
     }
 }
 
 @Composable
 private fun SectionHeader(title: String, isToday: Boolean = false) {
-    Text(
-        title.uppercase(),
-        style = MaterialTheme.typography.labelSmall,
-        color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-    )
+    Text(title.uppercase(), style = MaterialTheme.typography.labelSmall,
+         color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+}
+
+@Composable
+private fun ChangesSummary(changes: UpdateChanges) {
+    if (changes.count == 0) {
+        Text(stringResource(R.string.no_changes_since_update),
+             style = MaterialTheme.typography.bodySmall,
+             color = MaterialTheme.colorScheme.outline,
+             modifier = Modifier.padding(horizontal = 8.dp))
+        return
+    }
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) {
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            if (changes.newGradeIds.isNotEmpty())
+                Text(pl(changes.newGradeIds.size, "nowa ocena", "nowe oceny", "nowych ocen"),
+                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+            if (changes.newEventIds.isNotEmpty() || changes.changedEventIds.isNotEmpty())
+                Text("${changes.newEventIds.size + changes.changedEventIds.size} zmian w kalendarzu",
+                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+            if (changes.lessonChanges.isNotEmpty())
+                Text("${changes.lessonChanges.size} zmian w planie",
+                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+            if (changes.newAnnouncementIds.isNotEmpty())
+                Text(pl(changes.newAnnouncementIds.size, "nowe ogłoszenie", "nowe ogłoszenia", "nowych ogłoszeń"),
+                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+        }
+    }
 }
 
 @Composable
@@ -347,20 +576,28 @@ private fun ErrorBanner(text: String) {
 }
 
 @Composable
-private fun GradeRow(item: NewGrade) {
+private fun NewBadge() {
+    Box(Modifier.clip(RoundedCornerShape(50)).padding(0.dp)) {
+        Text("NEW", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold,
+             modifier = Modifier.clip(RoundedCornerShape(50))
+                 .padding(horizontal = 5.dp, vertical = 1.dp))
+    }
+}
+
+@Composable
+private fun GradeRow(item: NewGrade, isNew: Boolean) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.Top) {
-        Box(
-            Modifier.size(width = 36.dp, height = 28.dp).clip(RoundedCornerShape(6.dp))
-                .padding(1.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(item.grade.name, fontWeight = FontWeight.Bold,
-                 color = MaterialTheme.colorScheme.primary)
+        Box(Modifier.size(width = 36.dp, height = 28.dp).clip(RoundedCornerShape(6.dp))
+                .padding(1.dp), contentAlignment = Alignment.Center) {
+            Text(item.grade.name, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         }
         Spacer(Modifier.width(10.dp))
         Column {
-            Text(item.subject ?: "Przedmiot", fontWeight = FontWeight.SemiBold)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(item.subject ?: "Przedmiot", fontWeight = FontWeight.SemiBold)
+                if (isNew) { Spacer(Modifier.width(6.dp)); NewBadge() }
+            }
             val bits = buildList {
                 if (item.grade.category.isNotEmpty()) add(item.grade.category)
                 if (item.grade.weight > 0) add("waga ${item.grade.weight.toInt()}")
@@ -380,40 +617,32 @@ private fun GradeRow(item: NewGrade) {
 private fun CancelledRow(lesson: Lesson) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
         Text(lesson.day.string, Modifier.width(80.dp),
-             style = MaterialTheme.typography.bodySmall,
-             color = MaterialTheme.colorScheme.outline)
+             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
         Text("${lesson.number}. ${lesson.subject ?: "Lekcja"}",
-             textDecoration = TextDecoration.LineThrough,
-             color = MaterialTheme.colorScheme.outline)
+             textDecoration = TextDecoration.LineThrough, color = MaterialTheme.colorScheme.outline)
         Spacer(Modifier.weight(1f))
-        Text("${lesson.start}–${lesson.end}",
-             style = MaterialTheme.typography.bodySmall,
+        Text("${lesson.start}–${lesson.end}", style = MaterialTheme.typography.bodySmall,
              color = MaterialTheme.colorScheme.outline)
     }
 }
 
 @Composable
-private fun EventRow(item: EventItem, showDay: Boolean) {
+private fun EventRow(item: EventItem, showDay: Boolean, isNew: Boolean) {
     val event = item.event
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) {
         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                AssistChip(
-                    onClick = {},
-                    label = { Text(event.category, fontSize = 11.sp) },
-                    modifier = Modifier.height(24.dp)
-                )
+                AssistChip(onClick = {}, label = { Text(event.category, fontSize = 11.sp) },
+                           modifier = Modifier.height(24.dp))
                 Spacer(Modifier.width(8.dp))
                 event.subject?.let { Text(it, fontWeight = FontWeight.SemiBold) }
+                if (isNew) { Spacer(Modifier.width(6.dp)); NewBadge() }
                 Spacer(Modifier.weight(1f))
-                val when_ = buildString {
+                val whenText = buildString {
                     if (showDay) { append(event.day.string); append(" · ") }
-                    item.start?.let {
-                        append(it)
-                        item.end?.let { e -> append("–"); append(e) }
-                    }
+                    item.start?.let { append(it); item.end?.let { e -> append("–"); append(e) } }
                 }
-                Text(when_, style = MaterialTheme.typography.bodySmall,
+                Text(whenText, style = MaterialTheme.typography.bodySmall,
                      color = MaterialTheme.colorScheme.outline)
             }
             if (event.topic.isNotEmpty()) Text(event.topic, style = MaterialTheme.typography.bodyMedium)
@@ -421,9 +650,8 @@ private fun EventRow(item: EventItem, showDay: Boolean) {
                 event.teacher?.let { add(it) }
                 item.classroom?.let { add("sala $it") }
             }
-            if (details.isNotEmpty())
-                Text(details.joinToString(" · "), style = MaterialTheme.typography.bodySmall,
-                     color = MaterialTheme.colorScheme.outline)
+            if (details.isNotEmpty()) Text(details.joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
         }
     }
 }
@@ -433,38 +661,35 @@ private fun LessonRow(lesson: Lesson) {
     val isGone = lesson.kind == LessonKind.CANCELLED || lesson.kind == LessonKind.SHIFTED_SOURCE
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        Text("${lesson.number}", Modifier.width(24.dp),
-             fontWeight = FontWeight.Bold)
+        Text("${lesson.number}", Modifier.width(24.dp), fontWeight = FontWeight.Bold)
         Column(Modifier.weight(1f)) {
             Text(lesson.subject ?: "Lekcja",
                  textDecoration = if (isGone) TextDecoration.LineThrough else null,
                  color = if (isGone) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface)
             val details = listOfNotNull(lesson.classroom, lesson.teacher).joinToString(" · ")
-            if (details.isNotEmpty())
-                Text(details, style = MaterialTheme.typography.bodySmall,
-                     color = MaterialTheme.colorScheme.outline)
+            if (details.isNotEmpty()) Text(details, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline)
         }
-        Text("${lesson.start}–${lesson.end}",
-             style = MaterialTheme.typography.bodySmall,
+        Text("${lesson.start}–${lesson.end}", style = MaterialTheme.typography.bodySmall,
              color = MaterialTheme.colorScheme.outline)
     }
 }
 
 @Composable
-private fun AnnouncementRow(a: Announcement) {
+private fun AnnouncementRow(a: Announcement, isNew: Boolean) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) {
         Column(Modifier.padding(10.dp)) {
-            Row {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(a.subject, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                if (isNew) { Spacer(Modifier.width(6.dp)); NewBadge() }
                 TextButton(onClick = { expanded = !expanded }) {
                     Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null)
                 }
             }
             val meta = listOfNotNull(a.author, a.startDay?.string).joinToString(" · ")
-            if (meta.isNotEmpty())
-                Text(meta, style = MaterialTheme.typography.bodySmall,
-                     color = MaterialTheme.colorScheme.outline)
+            if (meta.isNotEmpty()) Text(meta, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline)
             if (expanded) Text(a.text, style = MaterialTheme.typography.bodyMedium,
                                modifier = Modifier.padding(top = 6.dp))
         }
@@ -474,19 +699,27 @@ private fun AnnouncementRow(a: Announcement) {
 @Composable
 private fun EmptyDay(hasTimetable: Boolean) {
     Text(if (hasTimetable) "Brak lekcji" else "Ładowanie…",
-         style = MaterialTheme.typography.bodySmall,
-         color = MaterialTheme.colorScheme.outline,
+         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline,
          modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
 }
 
+// MARK: Settings
+
 @Composable
-private fun SettingsScreen() {
+private fun SettingsScreen(current: AppLanguage, onLanguage: (AppLanguage) -> Unit) {
+    var selected by remember { mutableStateOf(current) }
     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(R.string.language), style = MaterialTheme.typography.titleMedium)
+        AppLanguage.entries.forEach { lang ->
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(selected = lang == selected,
+                            onClick = { selected = lang; onLanguage(lang) })
+                Text(lang.label, Modifier.padding(start = 8.dp))
+            }
+        }
         Text(stringResource(R.string.settings_language_note),
-             style = MaterialTheme.typography.bodySmall,
-             color = MaterialTheme.colorScheme.outline)
+             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+        Spacer(Modifier.height(8.dp))
         Text(stringResource(R.string.settings_footer), style = MaterialTheme.typography.bodySmall)
-        Spacer(Modifier.height(16.dp))
     }
 }
