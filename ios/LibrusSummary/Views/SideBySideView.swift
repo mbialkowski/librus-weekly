@@ -147,22 +147,21 @@ private struct ChildHeader: View {
             model.select(id)
             model.setSideBySide(false)
         } label: {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .center, spacing: 2) {
                 HStack(spacing: 4) {
                     Text(account.map { model.name(of: $0) } ?? "Child")
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(2)
                     if model.loading.contains(id) { ProgressView().controlSize(.mini) }
                 }
-                if let fetchedAt = model.states[id]?.data?.fetchedAt {
-                    Text("Updated \(fetchedAt.updateLabel)").font(.caption2).foregroundStyle(.secondary)
-                }
                 if let error = model.errors[id] {
                     Text(error).font(.caption2).foregroundStyle(.orange)
+                        .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                         .textSelection(.enabled)
                 }
             }
+            .frame(maxWidth: .infinity)
         }
         .buttonStyle(.borderless)
         .foregroundStyle(.primary)
@@ -452,12 +451,13 @@ private struct AnnouncementAccordionRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Button(action: toggle) {
-                HStack(spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(announcement.subject)
                         .font(.caption.weight(.semibold))
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .fixedSize(horizontal: false, vertical: true)
                     if isNew { NewBadge() }
-                    Spacer(minLength: 2)
                     Image(systemName: isOpen ? "chevron.up" : "chevron.down")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
