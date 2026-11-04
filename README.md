@@ -143,6 +143,8 @@ Aplikacja nieoficjalna, niezwiązana z Librus sp. z o.o.
 
 ### 2026-11-04 — Plan zajęć
 - Aplikacja przemianowana na **Plan zajęć**, nowa ikona (kalendarz + ikonki uczniów).
+- **Wiadomości z Synergii** — sekcja nad „Ogłoszeniami" w widoku obok siebie. Ta sama logika „Shared: N" dla wiadomości, które przyszły do wszystkich dzieci (ten sam temat + nadawca + dzień). Dotknięcie wiersza otwiera pełną treść w popupie (body dociągane na żądanie). Dotyczy iOS i Android.
+- **Popup zamiast akordeonu** dla ogłoszeń i wiadomości — cała treść na pełnym ekranie, bez obcinania. Dotyczy iOS (`.sheet`) i Android (`ModalBottomSheet`).
 - **Przyklejony nagłówek z imieniem dziecka** nad listą — zostaje widoczny przy przewijaniu. Imię wyśrodkowane, bez znacznika „Zaktualizowano".
 - **Zakres godzin dnia** nad listą lekcji w kolumnie („7:45–13:05") — od razu widać, do kiedy dziecko jest w szkole.
 - **Szczegóły zastępstw** w widoku obok siebie: nota („Zastępstwo za …") plus (nauczyciel · sala) pod spodem.
