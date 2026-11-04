@@ -74,11 +74,11 @@ struct SideBySideList: View {
                     Section("Messages") {
                         if hasPerKidMsg {
                             Columns(ids: ids) { id in
-                                MessagesAccordion(items: msgSplit.perKid[id] ?? [], label: nil)
+                                MessagesAccordion(items: msgSplit.perKid[id] ?? [], ownerID: id, label: nil)
                             }
                         }
-                        if !msgSplit.shared.isEmpty {
-                            MessagesAccordion(items: msgSplit.shared, label: "Shared")
+                        if !msgSplit.shared.isEmpty, let first = ids.first {
+                            MessagesAccordion(items: msgSplit.shared, ownerID: first, label: "Shared")
                         }
                     }
                 }
@@ -461,12 +461,14 @@ private struct AnnouncementsAccordion: View {
 private struct AnnouncementAccordionRow: View {
     let announcement: Announcement
     let isNew: Bool
+    // Kept for API compatibility; row now opens a sheet instead of inline expansion.
     let isOpen: Bool
     let toggle: () -> Void
+    @State private var showSheet = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Button(action: toggle) {
+        Button { showSheet = true } label: {
+            VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(announcement.subject)
                         .font(.caption.weight(.semibold))
@@ -474,28 +476,55 @@ private struct AnnouncementAccordionRow: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .fixedSize(horizontal: false, vertical: true)
                     if isNew { NewBadge() }
-                    Image(systemName: isOpen ? "chevron.up" : "chevron.down")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                    Image(systemName: "chevron.right")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+                let meta = [announcement.author, announcement.startDay?.shortLabel].compactMap { $0 }
+                if !meta.isEmpty {
+                    Text(meta.joined(separator: " · "))
+                        .font(.caption2).foregroundStyle(.secondary)
                 }
             }
-            .buttonStyle(.borderless)
-            .foregroundStyle(.primary)
+            .padding(.leading, 4)
+        }
+        .buttonStyle(.borderless)
+        .foregroundStyle(.primary)
+        .sheet(isPresented: $showSheet) {
+            AnnouncementSheet(announcement: announcement)
+        }
+    }
+}
 
-            let meta = [announcement.author, announcement.startDay?.shortLabel].compactMap { $0 }
-            if !meta.isEmpty {
-                Text(meta.joined(separator: " · "))
-                    .font(.caption2).foregroundStyle(.secondary)
+private struct AnnouncementSheet: View {
+    let announcement: Announcement
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(announcement.subject).font(.title3.weight(.semibold))
+                        .fixedSize(horizontal: false, vertical: true)
+                    let meta = [announcement.author, announcement.startDay?.longLabel].compactMap { $0 }
+                    if !meta.isEmpty {
+                        Text(meta.joined(separator: " · "))
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                    Text(announcement.text).font(.body)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
             }
-            if isOpen {
-                Text(announcement.text)
-                    .font(.caption)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .textSelection(.enabled)
-                    .padding(.top, 2)
+            .navigationTitle("Announcement")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Close") { dismiss() }
+                }
             }
         }
-        .padding(.leading, 4)
     }
 }
 
@@ -584,6 +613,7 @@ private func splitAnnouncements(ids: [UUID], summaries: [UUID: WeekSummary], mod
 
 private struct MessagesAccordion: View {
     let items: [MessageSummary]
+    let ownerID: UUID
     var label: String? = nil
     @State private var expanded = false
 
@@ -609,28 +639,118 @@ private struct MessagesAccordion: View {
 
                 if expanded {
                     ForEach(items) { m in
-                        VStack(alignment: .leading, spacing: 1) {
-                            HStack(spacing: 4) {
-                                Text(m.subject)
-                                    .font(.caption.weight(.semibold))
-                                    .multilineTextAlignment(.leading)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                if m.unread { NewBadge() }
-                                if m.hasAttachments {
-                                    Image(systemName: "paperclip")
-                                        .font(.caption2).foregroundStyle(.secondary)
-                                }
-                            }
-                            Text("\(m.correspondent) · \(m.date)")
-                                .font(.caption2).foregroundStyle(.secondary)
-                        }
-                        .padding(.leading, 4)
+                        MessageRow(message: m, ownerID: ownerID)
                     }
                 }
             }
         }
     }
+}
+
+private struct MessageRow: View {
+    let message: MessageSummary
+    let ownerID: UUID
+    @State private var showSheet = false
+
+    var body: some View {
+        Button { showSheet = true } label: {
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 4) {
+                    Text(message.subject)
+                        .font(.caption.weight(.semibold))
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if message.unread { NewBadge() }
+                    if message.hasAttachments {
+                        Image(systemName: "paperclip")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
+                    Image(systemName: "chevron.right")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+                Text("\(message.correspondent) · \(message.date)")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+            .padding(.leading, 4)
+        }
+        .buttonStyle(.borderless)
+        .foregroundStyle(.primary)
+        .sheet(isPresented: $showSheet) {
+            MessageSheet(message: message, ownerID: ownerID)
+        }
+    }
+}
+
+private struct MessageSheet: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    let message: MessageSummary
+    let ownerID: UUID
+    @State private var detail: MessageDetail?
+    @State private var errorText: String?
+    @State private var loading = true
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(message.subject).font(.title3.weight(.semibold))
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("\(message.correspondent) · \(message.date)")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    Divider()
+                    if loading {
+                        HStack { Spacer(); ProgressView(); Spacer() }
+                    } else if let errorText {
+                        Text(errorText).foregroundStyle(.orange).textSelection(.enabled)
+                    } else if let detail {
+                        Text(stripHTML(detail.bodyHTML))
+                            .font(.body)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .textSelection(.enabled)
+                        if !detail.attachments.isEmpty {
+                            Divider()
+                            Text("Attachments").font(.footnote.weight(.semibold))
+                            ForEach(detail.attachments) { a in
+                                Label(a.filename, systemImage: "paperclip").font(.footnote)
+                            }
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+            }
+            .navigationTitle("Message")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Close") { dismiss() }
+                }
+            }
+        }
+        .task {
+            do {
+                detail = try await model.fetchMessageDetail(child: ownerID, id: message.id)
+            } catch {
+                errorText = error.localizedDescription
+            }
+            loading = false
+        }
+    }
+}
+
+private func stripHTML(_ html: String) -> String {
+    var s = html
+    s = s.replacingOccurrences(of: #"<br\s*/?>"#, with: "\n", options: .regularExpression)
+    s = s.replacingOccurrences(of: #"</p>"#, with: "\n\n", options: .regularExpression)
+    s = s.replacingOccurrences(of: #"<[^>]+>"#, with: "", options: .regularExpression)
+    s = s.replacingOccurrences(of: "&nbsp;", with: " ")
+    s = s.replacingOccurrences(of: "&amp;", with: "&")
+    s = s.replacingOccurrences(of: "&lt;", with: "<")
+    s = s.replacingOccurrences(of: "&gt;", with: ">")
+    s = s.replacingOccurrences(of: "&quot;", with: "\"")
+    return s.trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
 private struct MessageSplit {

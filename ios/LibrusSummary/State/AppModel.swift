@@ -73,6 +73,12 @@ final class AppModel {
         return full.split(separator: " ").first.map(String.init) ?? full
     }
 
+    /// Fetches the body of a single Synergia message on demand (used by the message sheet).
+    func fetchMessageDetail(child: UUID, id: String) async throws -> MessageDetail {
+        guard let client = client(for: child) else { throw LibrusError.notLoggedIn }
+        return try await client.synergia.message(id: id, folder: .inbox)
+    }
+
     func summary(for id: UUID) -> WeekSummary? {
         guard let state = states[id], let data = state.data else { return nil }
         return WeekSummary(start: week, data: data, timetable: state.timetables[week.string])

@@ -4,14 +4,18 @@
 
 Kilka minut i aplikacja jest gotowa. Działa tylko na Twoim telefonie — żadnego pośredniego serwera, żadnej analityki, żadnego konta w aplikacji do założenia.
 
+<p align="center">
+  <img src="docs/screenshots/sidebyside.gif" alt="Nagranie z widoku obok siebie" width="320"/>
+</p>
+
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/single.svg" alt="Tydzień jednego dziecka" width="300"/></td>
-    <td align="center"><img src="docs/screenshots/side-by-side.svg" alt="Widok obok siebie dla rodzeństwa" width="300"/></td>
+    <td align="center"><img src="docs/screenshots/day-view.png" alt="Dzień z sprawdzianem i Early Stage" width="320"/></td>
+    <td align="center"><img src="docs/screenshots/substitutions.png" alt="Dzień z zastępstwami i odwołanymi lekcjami" width="320"/></td>
   </tr>
   <tr>
-    <td align="center"><sub>Tydzień jednego dziecka</sub></td>
-    <td align="center"><sub>Rodzeństwo obok siebie</sub></td>
+    <td align="center"><sub>Widok dnia — Librus + EarlyStage obok siebie</sub></td>
+    <td align="center"><sub>Zastępstwa i odwołane lekcje w kolumnie</sub></td>
   </tr>
 </table>
 
