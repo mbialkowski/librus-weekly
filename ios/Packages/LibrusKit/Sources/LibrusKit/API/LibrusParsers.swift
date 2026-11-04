@@ -228,6 +228,32 @@ public enum LibrusParsers {
                       oldSubject: nil, oldTeacher: nil, otherDay: nil, otherNumber: nil)
     }
 
+    /// Parent-teacher conferences (zebrania / wywiadówki / konsultacje) come from a separate
+    /// endpoint than homework/calendar events. Ids are offset to avoid clashing with HomeWorks.
+    public static func parentTeacherConferences(_ json: JSON, dict: Dictionaries) -> [AgendaEvent] {
+        json["ParentTeacherConferences"].array.compactMap { c in
+            guard let rawID = c["Id"].int, let day = Day(c["Date"].string) else { return nil }
+            let name = (c["Name"].string ?? "Zebranie").trimmingCharacters(in: .whitespacesAndNewlines)
+            let topicBase = (c["Topic"].string ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let room = c["Room"].string?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+            let topic: String
+            if let room, topicBase.isEmpty { topic = "Sala \(room)" }
+            else if let room { topic = "\(topicBase)\n\nSala \(room)" }
+            else { topic = topicBase }
+            return AgendaEvent(
+                id: rawID + 10_000_000, day: day,
+                time: c["Time"].string.map { String($0.prefix(5)) },
+                lessonNumber: nil,
+                topic: topic,
+                category: name,
+                colorHex: "#BA55D3",
+                subject: nil,
+                teacher: dict.teacherName(c["Teacher"].refID),
+                addedDate: nil
+            )
+        }
+    }
+
     public static func events(_ json: JSON, dict: Dictionaries) -> [AgendaEvent] {
         json["HomeWorks"].array.compactMap { e in
             guard let id = e["Id"].int, let day = Day(e["Date"].string) else { return nil }

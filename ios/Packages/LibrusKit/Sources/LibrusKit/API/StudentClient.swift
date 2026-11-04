@@ -50,6 +50,7 @@ public final class StudentClient: @unchecked Sendable {
         async let notesJSON = optional("Uwagi") { try await self.api.get("Notes") }
         async let noticesJSON = optional("Ogłoszenia") { try await self.api.get("SchoolNotices") }
         async let luckyJSON = optional("Szczęśliwy numerek") { try await self.api.get("LuckyNumbers") }
+        async let conferencesJSON = optional("Zebrania") { try await self.api.get("ParentTeacherConferences") }
         async let timetableJSON = optional("Plan lekcji") { try await self.api.get("Timetables?weekStart=\(weekStart)") }
 
         var d = LibrusParsers.Dictionaries()
@@ -74,6 +75,7 @@ public final class StudentClient: @unchecked Sendable {
         data.subjects = d.subjects.values.sorted { $0.name.localizedCompare($1.name) == .orderedAscending }
         if let json = collect(await gradesJSON, into: &warnings) { data.grades = LibrusParsers.grades(json, dict: d) }
         if let json = collect(await eventsJSON, into: &warnings) { data.events = LibrusParsers.events(json, dict: d) }
+        if let json = collect(await conferencesJSON, into: &warnings) { data.events += LibrusParsers.parentTeacherConferences(json, dict: d) }
         if let json = collect(await attendanceJSON, into: &warnings) { data.attendance = LibrusParsers.attendance(json, dict: d) }
         if let json = collect(await notesJSON, into: &warnings) { data.notices = LibrusParsers.notices(json, dict: d) }
         if let json = collect(await noticesJSON, into: &warnings) { data.announcements = LibrusParsers.announcements(json, dict: d) }

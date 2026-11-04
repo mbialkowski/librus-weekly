@@ -41,6 +41,7 @@ class StudentClient(val profile: StoredAccount) {
         val notesJson     = async { optional("Uwagi")                { api.get("Notes") } }
         val noticesJson   = async { optional("Ogłoszenia")           { api.get("SchoolNotices") } }
         val luckyJson     = async { optional("Szczęśliwy numerek")   { api.get("LuckyNumbers") } }
+        val conferencesJson = async { optional("Zebrania")           { api.get("ParentTeacherConferences") } }
         val timetableJson = async { optional("Plan lekcji")          { api.get("Timetables?weekStart=$weekStart") } }
 
         val d = LibrusParsers.Dictionaries().apply {
@@ -68,6 +69,7 @@ class StudentClient(val profile: StoredAccount) {
         data.subjects = d.subjects.values.sortedBy { it.name }
         collect(gradesJson.await(), warnings)?.let { data.grades = LibrusParsers.grades(it, d) }
         collect(eventsJson.await(), warnings)?.let { data.events = LibrusParsers.events(it, d).toMutableList() }
+        collect(conferencesJson.await(), warnings)?.let { data.events.addAll(LibrusParsers.parentTeacherConferences(it, d)) }
         collect(attendanceJson.await(), warnings)?.let { data.attendance = LibrusParsers.attendance(it, d) }
         collect(notesJson.await(), warnings)?.let { data.notices = LibrusParsers.notices(it, d) }
         collect(noticesJson.await(), warnings)?.let { data.announcements = LibrusParsers.announcements(it, d) }

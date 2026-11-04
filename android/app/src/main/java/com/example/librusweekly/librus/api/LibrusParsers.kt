@@ -202,6 +202,34 @@ object LibrusParsers {
             subject, teacher, classroom)
     }
 
+    /// Parent-teacher conferences (zebrania / wywiadówki / konsultacje) come from a separate
+    /// endpoint than homework/calendar events. Ids are offset to avoid clashing with HomeWorks.
+    fun parentTeacherConferences(json: Json, dict: Dictionaries): List<AgendaEvent> =
+        json["ParentTeacherConferences"].array.mapNotNull { c ->
+            val rawId = c["Id"].int ?: return@mapNotNull null
+            val day = Day.of(c["Date"].string) ?: return@mapNotNull null
+            val name = (c["Name"].string ?: "Zebranie").trim()
+            val topicBase = (c["Topic"].string ?: "").trim()
+            val room = c["Room"].string?.trim()?.ifEmpty { null }
+            val topic = when {
+                room != null && topicBase.isEmpty() -> "Sala $room"
+                room != null -> "$topicBase\n\nSala $room"
+                else -> topicBase
+            }
+            AgendaEvent(
+                id = rawId + 10_000_000,
+                day = day,
+                time = c["Time"].string?.take(5),
+                lessonNumber = null,
+                topic = topic,
+                category = name,
+                colorHex = "#BA55D3",
+                subject = null,
+                teacher = dict.teacherName(c["Teacher"].refId),
+                addedDate = null
+            )
+        }
+
     fun events(json: Json, dict: Dictionaries): List<AgendaEvent> =
         json["HomeWorks"].array.mapNotNull { e ->
             val id = e["Id"].int ?: return@mapNotNull null
