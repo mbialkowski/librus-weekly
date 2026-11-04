@@ -8,17 +8,24 @@ struct SideBySideList: View {
     var body: some View {
         let ids = model.accounts.map(\.id)
         let summaries = summaries(for: ids)
+        VStack(spacing: 0) {
+            Columns(ids: ids) { id in ChildHeader(id: id) }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(.regularMaterial)
+            listBody(ids: ids, summaries: summaries)
+        }
+    }
+
+    @ViewBuilder
+    private func listBody(ids: [UUID], summaries: [UUID: WeekSummary]) -> some View {
         List {
             WeekNavigator()
 
-            Section {
+            Section("This week") {
                 Columns(ids: ids) { id in
-                    ChildOverview(summary: summaries[id], changes: model.states[id]?.changes,
-                                  fetchedAt: model.states[id]?.data?.fetchedAt)
+                    ChildOverview(summary: summaries[id], changes: model.states[id]?.changes)
                 }
-            } header: {
-                Columns(ids: ids) { id in CompactChildHeader(id: id) }
-                    .padding(.vertical, 2)
             }
 
             if summaries.values.contains(where: { !$0.grades.isEmpty }) {
@@ -113,9 +120,9 @@ private struct Columns<Content: View>: View {
     }
 }
 
-/// Compact sticky-header row — just the name, a loading spinner, and any error. The last-updated
-/// timestamp moves into the "This week" overview below so the sticky header stays short.
-private struct CompactChildHeader: View {
+/// Pinned header row above the list — tap the name to switch to the single-child view.
+/// Lives outside the List so it stays visible as the user scrolls.
+private struct ChildHeader: View {
     @Environment(AppModel.self) private var model
     let id: UUID
 
@@ -125,12 +132,15 @@ private struct CompactChildHeader: View {
             model.select(id)
             model.setSideBySide(false)
         } label: {
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Text(account.map { model.name(of: $0) } ?? "Child")
-                        .font(.caption.weight(.semibold))
-                        .lineLimit(1)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(2)
                     if model.loading.contains(id) { ProgressView().controlSize(.mini) }
+                }
+                if let fetchedAt = model.states[id]?.data?.fetchedAt {
+                    Text("Updated \(fetchedAt.updateLabel)").font(.caption2).foregroundStyle(.secondary)
                 }
                 if let error = model.errors[id] {
                     Text(error).font(.caption2).foregroundStyle(.orange)
@@ -147,13 +157,9 @@ private struct CompactChildHeader: View {
 private struct ChildOverview: View {
     let summary: WeekSummary?
     let changes: UpdateChanges?
-    let fetchedAt: Date?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            if let fetchedAt {
-                Text("Updated \(fetchedAt.updateLabel)").font(.caption2).foregroundStyle(.secondary)
-            }
             if let summary {
                 line(summary.grades.count, "new grade", "new grades")
                 line(summary.eventCount, "test/event", "tests/events")

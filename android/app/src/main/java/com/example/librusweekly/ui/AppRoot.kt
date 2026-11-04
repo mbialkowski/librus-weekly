@@ -28,7 +28,7 @@ import com.example.librusweekly.R
 import com.example.librusweekly.librus.models.*
 import com.example.librusweekly.state.*
 
-@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppRoot(vm: AppViewModel = viewModel()) {
     val state by vm.state.collectAsState()
@@ -282,7 +282,6 @@ private fun WeekScreen(state: AppUiState, onWeek: (Day) -> Unit) {
 // MARK: Side by side
 
 @Composable
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 private fun SideBySideScreen(state: AppUiState, onWeek: (Day) -> Unit, onSelectChild: (java.util.UUID) -> Unit) {
     val accounts = state.accounts
     val summaries: Map<java.util.UUID, WeekSummary> = accounts.mapNotNull { a ->
@@ -290,29 +289,35 @@ private fun SideBySideScreen(state: AppUiState, onWeek: (Day) -> Unit, onSelectC
         a.id to WeekSummary(state.week, data, data.timetable[state.week.string])
     }.toMap()
 
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        item { Spacer(Modifier.height(8.dp)) }
-        item { WeekNavigator(state.week, onWeek) }
-
-        stickyHeader {
-            SideColumns(accounts.map { it.id }) { id ->
-                val acct = accounts.first { it.id == id }
-                TextButton(
-                    onClick = { onSelectChild(id) },
-                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
-                ) {
-                    Column(horizontalAlignment = Alignment.Start) {
-                        Text(acct.shortName, style = MaterialTheme.typography.labelMedium,
-                             fontWeight = FontWeight.SemiBold)
-                        if (id in state.loadingIds) Text(stringResource(R.string.refreshing),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.outline)
+    Column(Modifier.fillMaxSize()) {
+        // Pinned header row: lives outside the LazyColumn so it is always visible while scrolling.
+        SideColumns(accounts.map { it.id }) { id ->
+            val acct = accounts.first { it.id == id }
+            TextButton(
+                onClick = { onSelectChild(id) },
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.Start) {
+                    Text(acct.shortName, style = MaterialTheme.typography.titleSmall,
+                         fontWeight = FontWeight.SemiBold)
+                    state.datas[id]?.fetchedAt?.let { ts ->
+                        Text("Zaktualizowano ${formatTimestamp(ts)}",
+                             style = MaterialTheme.typography.labelSmall,
+                             color = MaterialTheme.colorScheme.outline)
                     }
+                    if (id in state.loadingIds) Text(stringResource(R.string.refreshing),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline)
                 }
             }
         }
+        HorizontalDivider()
 
-        item { SectionHeader(stringResource(R.string.this_week_heading)) }
+        LazyColumn(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            item { Spacer(Modifier.height(8.dp)) }
+            item { WeekNavigator(state.week, onWeek) }
+
+            item { SectionHeader(stringResource(R.string.this_week_heading)) }
         item {
             SideColumns(accounts.map { it.id }) { id ->
                 val s = summaries[id]
@@ -357,7 +362,21 @@ private fun SideBySideScreen(state: AppUiState, onWeek: (Day) -> Unit, onSelectC
             }
         }
         item { Spacer(Modifier.height(32.dp)) }
+        }  // LazyColumn
+    }  // Column
+}
+
+private fun formatTimestamp(d: java.util.Date): String {
+    val cal = java.util.Calendar.getInstance()
+    val today = java.util.Calendar.getInstance()
+    cal.time = d
+    val fmt = if (cal.get(java.util.Calendar.YEAR) == today.get(java.util.Calendar.YEAR) &&
+                   cal.get(java.util.Calendar.DAY_OF_YEAR) == today.get(java.util.Calendar.DAY_OF_YEAR)) {
+        java.text.SimpleDateFormat("HH:mm", java.util.Locale("pl", "PL"))
+    } else {
+        java.text.SimpleDateFormat("d MMM, HH:mm", java.util.Locale("pl", "PL"))
     }
+    return fmt.format(d)
 }
 
 private fun daysUnion(summaries: Map<java.util.UUID, WeekSummary>, week: Day): List<Day> {
