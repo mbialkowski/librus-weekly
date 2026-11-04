@@ -28,7 +28,7 @@ import com.example.librusweekly.R
 import com.example.librusweekly.librus.models.*
 import com.example.librusweekly.state.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun AppRoot(vm: AppViewModel = viewModel()) {
     val state by vm.state.collectAsState()
@@ -282,6 +282,7 @@ private fun WeekScreen(state: AppUiState, onWeek: (Day) -> Unit) {
 // MARK: Side by side
 
 @Composable
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 private fun SideBySideScreen(state: AppUiState, onWeek: (Day) -> Unit, onSelectChild: (java.util.UUID) -> Unit) {
     val accounts = state.accounts
     val summaries: Map<java.util.UUID, WeekSummary> = accounts.mapNotNull { a ->
@@ -293,14 +294,19 @@ private fun SideBySideScreen(state: AppUiState, onWeek: (Day) -> Unit, onSelectC
         item { Spacer(Modifier.height(8.dp)) }
         item { WeekNavigator(state.week, onWeek) }
 
-        item {
+        stickyHeader {
             SideColumns(accounts.map { it.id }) { id ->
                 val acct = accounts.first { it.id == id }
-                TextButton(onClick = { onSelectChild(id) }) {
+                TextButton(
+                    onClick = { onSelectChild(id) },
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                ) {
                     Column(horizontalAlignment = Alignment.Start) {
-                        Text(acct.shortName, fontWeight = FontWeight.SemiBold)
+                        Text(acct.shortName, style = MaterialTheme.typography.labelMedium,
+                             fontWeight = FontWeight.SemiBold)
                         if (id in state.loadingIds) Text(stringResource(R.string.refreshing),
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline)
                     }
                 }
             }
@@ -343,9 +349,10 @@ private fun SideBySideScreen(state: AppUiState, onWeek: (Day) -> Unit, onSelectC
             item { SectionHeader(stringResource(R.string.announcements)) }
             item {
                 SideColumns(accounts.map { it.id }) { id ->
-                    AnnouncementsLink(count = annsByChild[id]?.size ?: 0,
-                                      newCount = state.allChanges[id]?.newAnnouncementIds?.size ?: 0,
-                                      onTap = { onSelectChild(id) })
+                    AnnouncementsAccordion(
+                        items = annsByChild[id].orEmpty(),
+                        newIds = state.allChanges[id]?.newAnnouncementIds.orEmpty()
+                    )
                 }
             }
         }
@@ -431,14 +438,26 @@ private fun DayColumn(summary: WeekSummary?, day: Day, highlighted: Set<Int>) {
         return
     }
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        val range = formatLessonRange(entry.lessons)
+        if (range.isNotEmpty()) {
+            Text(range, style = MaterialTheme.typography.labelSmall,
+                 fontWeight = FontWeight.SemiBold,
+                 color = MaterialTheme.colorScheme.outline)
+        }
         entry.events.forEach { item ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AssistChip(onClick = {}, label = { Text(item.event.category, fontSize = 10.sp) },
                            modifier = Modifier.height(20.dp))
                 if (item.id in highlighted) { Spacer(Modifier.width(4.dp)); NewBadge() }
             }
-            item.event.subject?.let { Text(it, style = MaterialTheme.typography.bodySmall,
-                                            fontWeight = FontWeight.SemiBold, maxLines = 1) }
+            item.event.subject?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall,
+                     fontWeight = FontWeight.SemiBold)
+            }
+            if (item.event.topic.isNotEmpty()) {
+                Text(item.event.topic, style = MaterialTheme.typography.bodySmall,
+                     color = MaterialTheme.colorScheme.outline)
+            }
         }
         entry.lessons.forEach { l ->
             val color = when (l.kind) {
@@ -446,15 +465,25 @@ private fun DayColumn(summary: WeekSummary?, day: Day, highlighted: Set<Int>) {
                 LessonKind.CANCELLED, LessonKind.SHIFTED_SOURCE -> MaterialTheme.colorScheme.error
                 else -> Color(0xFFD97706)
             }
-            Row {
+            val isGone = l.kind == LessonKind.CANCELLED || l.kind == LessonKind.SHIFTED_SOURCE
+            Row(verticalAlignment = Alignment.Top) {
                 Text("${l.number}", style = MaterialTheme.typography.bodySmall,
                      color = MaterialTheme.colorScheme.outline,
                      modifier = Modifier.width(14.dp))
-                Text(l.subject ?: "Lekcja", style = MaterialTheme.typography.bodySmall,
-                     color = color,
-                     textDecoration = if (l.kind == LessonKind.CANCELLED || l.kind == LessonKind.SHIFTED_SOURCE)
-                                        TextDecoration.LineThrough else null,
-                     maxLines = 1)
+                Column(Modifier.weight(1f)) {
+                    Text(l.subject ?: "Lekcja", style = MaterialTheme.typography.bodySmall,
+                         color = color,
+                         textDecoration = if (isGone) TextDecoration.LineThrough else null)
+                    lessonNote(l)?.let { note ->
+                        Text(note, style = MaterialTheme.typography.labelSmall,
+                             fontWeight = FontWeight.SemiBold, color = color)
+                    }
+                    val meta = listOfNotNull(l.classroom, l.teacher).joinToString(" · ")
+                    if (l.kind != LessonKind.NORMAL && meta.isNotEmpty()) {
+                        Text(meta, style = MaterialTheme.typography.labelSmall,
+                             color = MaterialTheme.colorScheme.outline)
+                    }
+                }
             }
         }
         if (entry.events.isEmpty() && entry.lessons.isEmpty()) {
@@ -464,18 +493,90 @@ private fun DayColumn(summary: WeekSummary?, day: Day, highlighted: Set<Int>) {
     }
 }
 
+/// Day span (first lesson start – last lesson end), skipping cancelled / moved-away entries.
+private fun formatLessonRange(lessons: List<Lesson>): String {
+    val present = lessons.filter { it.kind != LessonKind.CANCELLED && it.kind != LessonKind.SHIFTED_SOURCE }
+    val starts = present.mapNotNull { hhmmToMinutes(it.start) }
+    val ends = present.mapNotNull { hhmmToMinutes(it.end) }
+    val first = starts.minOrNull() ?: return ""
+    val last = ends.maxOrNull() ?: return ""
+    fun fmt(m: Int) = "%d:%02d".format(m / 60, m % 60)
+    return "${fmt(first)}–${fmt(last)}"
+}
+
+private fun hhmmToMinutes(s: String?): Int? {
+    if (s.isNullOrBlank() || s.length < 4) return null
+    val parts = s.take(5).split(":")
+    if (parts.size != 2) return null
+    val h = parts[0].toIntOrNull() ?: return null
+    val m = parts[1].toIntOrNull() ?: return null
+    return h * 60 + m
+}
+
+/// Mirrors the Swift `Lesson.note` extension — describes why a lesson is modified.
+private fun lessonNote(l: Lesson): String? = when (l.kind) {
+    LessonKind.NORMAL -> null
+    LessonKind.CANCELLED -> "Odwołana"
+    LessonKind.CHANGE -> {
+        val old = listOfNotNull(l.oldSubject, l.oldTeacher).joinToString(", ")
+        if (old.isEmpty()) "Zastępstwo" else "Zastępstwo za $old"
+    }
+    LessonKind.SHIFTED_SOURCE -> buildString {
+        append("Przeniesiona")
+        l.otherDay?.let { append(" na ").append(it.string) }
+        l.otherNumber?.let { append(", lekcja ").append(it) }
+    }
+    LessonKind.SHIFTED_TARGET -> buildString {
+        append("Przeniesiona")
+        l.otherDay?.let { append(" z ").append(it.string) }
+        l.otherNumber?.let { append(", lekcja ").append(it) }
+    }
+}
+
 @Composable
-private fun AnnouncementsLink(count: Int, newCount: Int, onTap: () -> Unit) {
-    if (count == 0) {
+private fun AnnouncementsAccordion(items: List<Announcement>, newIds: Set<String>) {
+    if (items.isEmpty()) {
         Text(stringResource(R.string.none), style = MaterialTheme.typography.bodySmall,
              color = MaterialTheme.colorScheme.outline)
         return
     }
-    TextButton(onClick = onTap) {
-        Text(pl(count, "ogłoszenie", "ogłoszenia", "ogłoszeń"), fontWeight = FontWeight.SemiBold)
-        if (newCount > 0) { Spacer(Modifier.width(4.dp)); NewBadge() }
-        Spacer(Modifier.weight(1f))
-        Icon(Icons.Default.ChevronRight, null, modifier = Modifier.size(16.dp))
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        TextButton(onClick = { expanded = !expanded }, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)) {
+            Text(pl(items.size, "ogłoszenie", "ogłoszenia", "ogłoszeń"), fontWeight = FontWeight.SemiBold)
+            if (newIds.isNotEmpty()) { Spacer(Modifier.width(4.dp)); NewBadge() }
+            Spacer(Modifier.weight(1f))
+            Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null,
+                 modifier = Modifier.size(16.dp))
+        }
+        if (expanded) {
+            items.forEach { ann ->
+                AnnouncementAccordionRow(ann, isNew = ann.id in newIds)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnnouncementAccordionRow(a: Announcement, isNew: Boolean) {
+    var open by rememberSaveable(a.id) { mutableStateOf(false) }
+    Column(Modifier.padding(start = 4.dp)) {
+        TextButton(onClick = { open = !open }, contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)) {
+            Text(a.subject, style = MaterialTheme.typography.bodySmall,
+                 fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            if (isNew) { Spacer(Modifier.width(4.dp)); NewBadge() }
+            Icon(if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null,
+                 modifier = Modifier.size(14.dp))
+        }
+        val meta = listOfNotNull(a.author, a.startDay?.string).joinToString(" · ")
+        if (meta.isNotEmpty()) {
+            Text(meta, style = MaterialTheme.typography.labelSmall,
+                 color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(start = 2.dp))
+        }
+        if (open) {
+            Text(a.text, style = MaterialTheme.typography.bodySmall,
+                 modifier = Modifier.padding(horizontal = 2.dp, vertical = 2.dp))
+        }
     }
 }
 

@@ -46,8 +46,8 @@ struct WeekView: View {
     }
 
     private var title: String {
-        if model.showsSideBySide { return "All children" }
-        return model.current.map { model.name(of: $0) } ?? "School Week"
+        if model.showsSideBySide { return "Plan zajęć" }
+        return model.current.map { model.name(of: $0) } ?? "Plan zajęć"
     }
 
     private var removeTitle: String {

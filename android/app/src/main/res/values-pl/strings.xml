@@ -1,12 +1,12 @@
 <resources>
-    <string name="app_name">Librus Tygodniowy</string>
+    <string name="app_name">Plan zajęć</string>
     <string name="settings">Ustawienia</string>
     <string name="done">Gotowe</string>
     <string name="log_in">Zaloguj</string>
     <string name="log_out">Wyloguj</string>
     <string name="password">Hasło</string>
     <string name="synergia_login">Login Synergia (np. 1234567u)</string>
-    <string name="login_headline">Librus Tygodniowy</string>
+    <string name="login_headline">Plan zajęć</string>
     <string name="login_subtitle">Oceny, lekcje, sprawdziany i ogłoszenia z tego tygodnia z Librus Synergia.</string>
     <string name="login_footer">Użyj loginu Synergia, nie e-maila Konta Librus. Hasła są przechowywane w Android Keystore wyłącznie na tym urządzeniu. Aplikacja nieoficjalna, niezwiązana z Librusem.</string>
     <string name="this_week">Ten tydzień</string>

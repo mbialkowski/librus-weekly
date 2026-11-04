@@ -27,7 +27,7 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: Librus Weekly
+        INFOPLIST_KEY_CFBundleDisplayName: Plan zajęć
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.education
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES

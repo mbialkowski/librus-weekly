@@ -134,3 +134,19 @@ Pakiet Swift `LibrusKit` (`ios/Packages/LibrusKit/`) został przeportowany przez
 Repozytorium jest na licencji **GPL-3.0** (zobacz [`LICENSE`](LICENSE)). Możesz forkować, zmieniać, budować dla siebie i rozdawać — każda pochodna, którą rozpowszechniasz, też musi zostać na GPL-3.0 i zachować powyższe podziękowania.
 
 Aplikacja nieoficjalna, niezwiązana z Librus sp. z o.o.
+
+## Co nowego
+
+### 2026-11-04 — Plan zajęć
+- Aplikacja przemianowana na **Plan zajęć**, nowa ikona (kalendarz + ikonki uczniów).
+- **Zakres godzin dnia** nad listą lekcji w kolumnie („7:45–13:05") — od razu widać, do kiedy dziecko jest w szkole.
+- **Szczegóły zastępstw** w widoku obok siebie: nota („Zastępstwo za …") plus (nauczyciel · sala) pod spodem.
+- **Ogłoszenia jako akordeon** w widoku obok siebie — rozwijają się w miejscu, zamiast przełączać na widok pojedynczego dziecka.
+- **Przyklejony nagłówek z imieniem dziecka** przy przewijaniu kolumn (iOS + Android); znacznik ostatniej aktualizacji zjeżdża razem z sekcją „Ten tydzień".
+- **Koniec z obcinaniem tekstu** — opisy sprawdzianów, treść błędów i ostrzeżeń zawijają się w pełni; da się je zaznaczyć i skopiować.
+- **Imiona zamiast „imię + nazwisko"** w tytule i menu.
+
+### 2026-11-04 (wcześniej)
+- Pobieranie **zebrań / wywiadówek** z osobnego endpointu Librusa (`/ParentTeacherConferences`) — pokazują się w planie na swój dzień.
+- **Android**: port klienta Librusa do Kotlina, widok tygodnia i „obok siebie", trwały cache, śledzenie zmian, przełącznik języka Systemowy / English / Polski.
+- README w języku polskim, makiety po polsku.

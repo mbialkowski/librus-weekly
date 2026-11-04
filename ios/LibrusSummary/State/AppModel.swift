@@ -69,7 +69,8 @@ final class AppModel {
     var changes: UpdateChanges? { selectedID.flatMap { states[$0]?.changes } }
 
     func name(of account: StoredAccount) -> String {
-        account.profiles.first?.studentName ?? account.displayName
+        let full = account.profiles.first?.studentName ?? account.displayName
+        return full.split(separator: " ").first.map(String.init) ?? full
     }
 
     func summary(for id: UUID) -> WeekSummary? {

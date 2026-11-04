@@ -14,10 +14,7 @@ data class StoredAccount(
     /// Human-readable name for the menu.
     val name: String get() = studentName.ifBlank { displayName }
 
+    /// First name only — surnames are redundant when there are only a few children.
     val shortName: String
-        get() {
-            val parts = name.split(' ').filter { it.isNotEmpty() }
-            if (parts.size <= 1) return name
-            return "${parts.first()} ${parts.last().first()}."
-        }
+        get() = name.split(' ').firstOrNull { it.isNotEmpty() } ?: name
 }

@@ -12,15 +12,13 @@ struct SideBySideList: View {
             WeekNavigator()
 
             Section {
-                Columns(ids: ids) { id in ChildHeader(id: id) }
-            } footer: {
-                Text("Tap a name to see that child's full week.")
-            }
-
-            Section("This week") {
                 Columns(ids: ids) { id in
-                    ChildOverview(summary: summaries[id], changes: model.states[id]?.changes)
+                    ChildOverview(summary: summaries[id], changes: model.states[id]?.changes,
+                                  fetchedAt: model.states[id]?.data?.fetchedAt)
                 }
+            } header: {
+                Columns(ids: ids) { id in CompactChildHeader(id: id) }
+                    .padding(.vertical, 2)
             }
 
             if summaries.values.contains(where: { !$0.grades.isEmpty }) {
@@ -64,9 +62,10 @@ struct SideBySideList: View {
             if summaries.values.contains(where: { !$0.announcements.isEmpty }) {
                 Section("Announcements") {
                     Columns(ids: ids) { id in
-                        AnnouncementsLink(id: id,
-                                          count: summaries[id]?.announcements.count ?? 0,
-                                          newCount: model.states[id]?.changes?.newAnnouncementIDs.count ?? 0)
+                        AnnouncementsAccordion(
+                            items: summaries[id]?.announcements ?? [],
+                            newIDs: model.states[id]?.changes?.newAnnouncementIDs ?? []
+                        )
                     }
                 }
             }
@@ -114,7 +113,9 @@ private struct Columns<Content: View>: View {
     }
 }
 
-private struct ChildHeader: View {
+/// Compact sticky-header row — just the name, a loading spinner, and any error. The last-updated
+/// timestamp moves into the "This week" overview below so the sticky header stays short.
+private struct CompactChildHeader: View {
     @Environment(AppModel.self) private var model
     let id: UUID
 
@@ -124,18 +125,17 @@ private struct ChildHeader: View {
             model.select(id)
             model.setSideBySide(false)
         } label: {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 4) {
                     Text(account.map { model.name(of: $0) } ?? "Child")
-                        .font(.subheadline.weight(.semibold))
-                        .lineLimit(2)
+                        .font(.caption.weight(.semibold))
+                        .lineLimit(1)
                     if model.loading.contains(id) { ProgressView().controlSize(.mini) }
                 }
-                if let fetchedAt = model.states[id]?.data?.fetchedAt {
-                    Text("Updated \(fetchedAt.updateLabel)").font(.caption2).foregroundStyle(.secondary)
-                }
                 if let error = model.errors[id] {
-                    Text(error).font(.caption2).foregroundStyle(.orange).lineLimit(3)
+                    Text(error).font(.caption2).foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
                 }
             }
         }
@@ -147,9 +147,13 @@ private struct ChildHeader: View {
 private struct ChildOverview: View {
     let summary: WeekSummary?
     let changes: UpdateChanges?
+    let fetchedAt: Date?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
+            if let fetchedAt {
+                Text("Updated \(fetchedAt.updateLabel)").font(.caption2).foregroundStyle(.secondary)
+            }
             if let summary {
                 line(summary.grades.count, "new grade", "new grades")
                 line(summary.eventCount, "test/event", "tests/events")
@@ -207,6 +211,10 @@ private struct DayColumn: View {
         let entry = summary?.days.first { $0.day == day }
         VStack(alignment: .leading, spacing: 6) {
             if let entry {
+                if !lessonRange(entry).isEmpty {
+                    Text(lessonRange(entry)).font(.caption2.weight(.semibold))
+                        .monospacedDigit().foregroundStyle(.secondary)
+                }
                 ForEach(entry.events) { CompactEvent(item: $0, isNew: highlighted.contains($0.id)) }
                 if !entry.lessons.isEmpty {
                     VStack(alignment: .leading, spacing: 2) {
@@ -222,6 +230,24 @@ private struct DayColumn: View {
             }
         }
     }
+
+    /// Shows the day's full span (first lesson start – last lesson end) so you can see at a
+    /// glance when the day begins and ends. Cancelled / moved-away lessons are skipped.
+    private func lessonRange(_ entry: DaySummary) -> String {
+        let present = entry.lessons.filter { $0.kind != .cancelled && $0.kind != .shiftedSource }
+        let starts = present.compactMap { hhmmToMinutes($0.start) }
+        let ends = present.compactMap { hhmmToMinutes($0.end) }
+        guard let first = starts.min(), let last = ends.max() else { return "" }
+        func fmt(_ m: Int) -> String { String(format: "%d:%02d", m / 60, m % 60) }
+        return "\(fmt(first))–\(fmt(last))"
+    }
+}
+
+private func hhmmToMinutes(_ s: String?) -> Int? {
+    guard let s, s.count >= 4 else { return nil }
+    let parts = s.prefix(5).split(separator: ":")
+    guard parts.count == 2, let h = Int(parts[0]), let m = Int(parts[1]) else { return nil }
+    return h * 60 + m
 }
 
 private struct CompactEvent: View {
@@ -235,10 +261,13 @@ private struct CompactEvent: View {
                 if isNew { NewBadge() }
             }
             if let subject = item.event.subject {
-                Text(subject).font(.caption.weight(.semibold)).lineLimit(1)
+                Text(subject).font(.caption.weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if !item.event.topic.isEmpty {
-                Text(item.event.topic).font(.caption2).lineLimit(3)
+                Text(item.event.topic).font(.caption2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
             }
             let when = item.when(showDay: false)
             if !when.isEmpty {
@@ -258,11 +287,26 @@ private struct CompactLesson: View {
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
                 .frame(width: 14, alignment: .trailing)
-            Text(lesson.subject ?? "Lesson")
-                .font(.caption)
-                .lineLimit(1)
-                .strikethrough(lesson.isGone)
-                .foregroundStyle(color)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(lesson.subject ?? "Lesson")
+                    .font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .strikethrough(lesson.isGone)
+                    .foregroundStyle(color)
+                if let note = lesson.note {
+                    Text(note)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(lesson.kind == .cancelled ? Color.red : Color.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                let meta = [lesson.classroom, lesson.teacher].compactMap { $0 }.joined(separator: " · ")
+                if lesson.kind != .normal && !meta.isEmpty {
+                    Text(meta)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
         }
     }
 
@@ -330,31 +374,88 @@ private struct AddedEventsColumn: View {
     }
 }
 
-private struct AnnouncementsLink: View {
-    @Environment(AppModel.self) private var model
-    let id: UUID
-    let count: Int
-    let newCount: Int
+private struct AnnouncementsAccordion: View {
+    let items: [Announcement]
+    let newIDs: Set<String>
+    @State private var expanded = false
+    @State private var openIDs: Set<String> = []
 
     var body: some View {
-        if count == 0 {
+        if items.isEmpty {
             Text("None").font(.caption).foregroundStyle(.secondary)
         } else {
-            Button {
-                model.select(id)
-                model.setSideBySide(false)
-                model.scrollTarget = "announcements"
-            } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Button { withAnimation { expanded.toggle() } } label: {
+                    HStack(spacing: 4) {
+                        Text(items.count == 1 ? "1 announcement" : "\(items.count) announcements")
+                            .font(.caption.weight(.semibold))
+                        if newIDs.count > 0 { NewBadge() }
+                        Spacer(minLength: 2)
+                        Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.primary)
+
+                if expanded {
+                    ForEach(items) { item in
+                        AnnouncementAccordionRow(
+                            announcement: item,
+                            isNew: newIDs.contains(item.id),
+                            isOpen: openIDs.contains(item.id),
+                            toggle: {
+                                withAnimation {
+                                    if openIDs.contains(item.id) { openIDs.remove(item.id) }
+                                    else { openIDs.insert(item.id) }
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct AnnouncementAccordionRow: View {
+    let announcement: Announcement
+    let isNew: Bool
+    let isOpen: Bool
+    let toggle: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Button(action: toggle) {
                 HStack(spacing: 4) {
-                    Text(count == 1 ? "1 announcement" : "\(count) announcements")
+                    Text(announcement.subject)
                         .font(.caption.weight(.semibold))
-                    if newCount > 0 { NewBadge() }
+                        .fixedSize(horizontal: false, vertical: true)
+                    if isNew { NewBadge() }
                     Spacer(minLength: 2)
-                    Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.secondary)
+                    Image(systemName: isOpen ? "chevron.up" : "chevron.down")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
             }
             .buttonStyle(.borderless)
+            .foregroundStyle(.primary)
+
+            let meta = [announcement.author, announcement.startDay?.shortLabel].compactMap { $0 }
+            if !meta.isEmpty {
+                Text(meta.joined(separator: " · "))
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+            if isOpen {
+                Text(announcement.text)
+                    .font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+                    .padding(.top, 2)
+            }
         }
+        .padding(.leading, 4)
     }
 }
 
@@ -370,7 +471,8 @@ private struct WarningsColumn: View {
                 Label(warning, systemImage: "exclamationmark.triangle")
                     .font(.caption2)
                     .foregroundStyle(.orange)
-                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
             }
         }
     }
