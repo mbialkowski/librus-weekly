@@ -1,39 +1,48 @@
-# Librus Weekly — Android
+# Librus Tygodniowy — Android
 
-A Jetpack Compose scaffold. **The Librus API client is not written yet** — login is a placeholder and the week screen only shows a TODO message. Contributions welcome.
+Aplikacja w Jetpack Compose. Klient API Librusa jest już w Kotlinie, a ekran tygodnia pokazuje prawdziwe dane. Jest prostsza niż wersja iOS — brak widoku „obok siebie”, brak trwałej pamięci podręcznej danych, brak przełącznika języka w ustawieniach (język idzie za językiem telefonu).
 
-## What's here
+## Co działa
 
-- Gradle / Compose project (`com.example.librusweekly`), min SDK 26, compile SDK 35.
-- **Login screen** — collects the Synergia login + password and routes to the week screen. Does not talk to Librus.
-- **Week screen** — placeholder.
-- **Settings** — language picker (System / English / Polski) with strings for both `values/` and `values-pl/`.
-- Light theme only, matching the iOS app.
+- Logowanie Synergia (`1234567u` + hasło rodzica); konta szyfrowane w `EncryptedSharedPreferences`.
+- Wiele dzieci, przełączanie z menu, dodawanie i usuwanie.
+- Widok tygodnia: nawigacja, przegląd (oceny / sprawdziany / odwołane / ogłoszenia / szczęśliwy numerek), nowe oceny, odwołane lekcje, wydarzenia dodane w tym tygodniu, dni (lekcje i wydarzenia), ogłoszenia, ostrzeżenia.
+- Zadania domowe scrapowane ze strony „Moje zadania” i wrzucane jako wydarzenia na dzień oddania.
+- Ogłoszenia starsze niż 30 dni są filtrowane (jak na iOS).
+- Strings `values/` (angielski) + `values-pl/` (polski) — system wybiera na podstawie języka telefonu.
 
-## What's missing
+## Czego jeszcze nie ma
 
-- A Kotlin port of the Librus / Synergia client (login, session renewal, grades, timetable, events, announcements, homework, lucky number). The iOS app uses the Swift `LibrusKit` package; the Android equivalent would use Jsoup + OkHttp (both already declared in `app/build.gradle.kts`).
-- Encrypted credential storage via Jetpack Security (`androidx.security:security-crypto`, already declared).
-- The `WeekScreen` composable — list sections for grades, cancelled lessons, days, announcements, and a side-by-side layout for multiple children.
-- Multi-child support (add / remove / switch) and offline caching through DataStore.
-- Signing config for release builds.
+- Widok obok siebie (porównanie rodzeństwa w kolumnach) — tylko iOS.
+- Trwały cache danych (zapis `StudentData` na dysku) — teraz tylko w pamięci, ginie przy zamknięciu aplikacji.
+- Śledzenie zmian („co nowego od ostatniej aktualizacji”) — brak.
+- Przełącznik języka w ustawieniach (iOS → System / English / Polski) — tu idzie za systemem.
+- Konfiguracja podpisu dla buildu release.
 
-## Build
+## Jak zbudować
 
-1. Open the `android/` folder in Android Studio and let it sync. The first sync will fetch Gradle and the dependencies.
-2. If you prefer the terminal and haven't opened Android Studio yet, create the Gradle wrapper once:
+1. Otwórz folder `android/` w Android Studio i poczekaj na synchronizację. Pierwsza synchronizacja pobiera Gradle i zależności.
+2. Jeśli wolisz terminal i jeszcze nie otwierałeś Android Studio, wygeneruj wrapper raz:
    ```bash
    cd android
    gradle wrapper --gradle-version 8.10.2
    ```
-   (needs `gradle` on `PATH` — `brew install gradle` on macOS.)
-3. Then:
+   (potrzebny jest `gradle` w `PATH` — `brew install gradle` na macOS.)
+3. Potem:
    ```bash
    ./gradlew assembleDebug
    ```
-   The APK lands in `app/build/outputs/apk/debug/`.
+   APK trafia do `app/build/outputs/apk/debug/`.
 
-## Project layout
+## Jak zainstalować na telefonie
+
+```bash
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+Albo w Android Studio: podłącz telefon przez USB, wybierz go jako cel i naciśnij **Run**.
+
+## Układ projektu
 
 ```
 android/
@@ -46,20 +55,27 @@ android/
     src/main/
       AndroidManifest.xml
       java/com/example/librusweekly/
-        MainActivity.kt       entry point
-        ui/AppRoot.kt         login + week + settings screens
-        ui/theme/Theme.kt     light colour scheme
-      res/values/strings.xml    English
-      res/values-pl/strings.xml Polish
+        MainActivity.kt
+        ui/AppRoot.kt         ekrany Compose
+        ui/theme/Theme.kt     jasny motyw
+        state/                ViewModel, konta, logika tygodnia
+        librus/               klient API Librus (odpowiednik iOS LibrusKit)
+          core/               stałe, błędy, JSON, HTTP
+          auth/               zapisane konta
+          api/                Librus API 2.0 + parsery + StudentClient
+          synergia/           sesja + scraping strony (zadania domowe)
+          models/             modele danych
+      res/values/strings.xml     angielski
+      res/values-pl/strings.xml  polski
+      res/drawable/…             ikona launchera
 ```
 
-## Where to help
+## Jak pomóc
 
-The most useful thing is porting `ios/Packages/LibrusKit/` from Swift to Kotlin:
+Najbliższe rzeczy do zrobienia:
 
-- **Auth** (`Auth/`) — OAuth-style login against `portal.librus.pl`, session renewal against `synergia.librus.pl`.
-- **API** (`API/`) — JSON parsers for grades, subjects, events, announcements.
-- **Synergia** (`Synergia/`) — HTML scrapers for the timetable, homework and lucky number (use Jsoup).
-- **Models** (`Models/`) — plain data classes.
-
-Keep the Kotlin port under a GPL-3.0 licence, mirroring the Swift package.
+- **Widok obok siebie** — port z `ios/LibrusSummary/Views/SideBySideView.swift`.
+- **Trwały cache** — zapis `StudentData` do DataStore lub po prostu do pliku w internal storage; wczytywanie na starcie.
+- **Śledzenie zmian** — port z `ios/LibrusSummary/State/UpdateChanges.swift` (dyf między starym a świeżym `StudentData`, znaczniki NEW).
+- **Przełącznik języka** — ustawienia z opcjami System / English / Polski, aplikowane przez `AppCompatDelegate.setApplicationLocales` albo `appcompat`-owy per-app language.
+- **Podpis release** — `signingConfigs.release` w `app/build.gradle.kts`.
