@@ -10,6 +10,7 @@ struct SideBySideList: View {
         let summaries = summaries(for: ids)
         VStack(spacing: 0) {
             Columns(ids: ids) { id in ChildHeader(id: id) }
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(.regularMaterial)
