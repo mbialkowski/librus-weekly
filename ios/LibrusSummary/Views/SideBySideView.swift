@@ -66,13 +66,27 @@ struct SideBySideList: View {
                 }
             }
 
-            if summaries.values.contains(where: { !$0.announcements.isEmpty }) {
-                Section("Announcements") {
-                    Columns(ids: ids) { id in
-                        AnnouncementsAccordion(
-                            items: summaries[id]?.announcements ?? [],
-                            newIDs: model.states[id]?.changes?.newAnnouncementIDs ?? []
-                        )
+            do {
+                let split = splitAnnouncements(ids: ids, summaries: summaries, model: model)
+                let hasPerKid = ids.contains { !(split.perKid[$0]?.isEmpty ?? true) }
+                if hasPerKid || !split.shared.isEmpty {
+                    Section("Announcements") {
+                        if hasPerKid {
+                            Columns(ids: ids) { id in
+                                AnnouncementsAccordion(
+                                    items: split.perKid[id] ?? [],
+                                    newIDs: split.perKidNewIDs[id] ?? [],
+                                    label: nil
+                                )
+                            }
+                        }
+                        if !split.shared.isEmpty {
+                            AnnouncementsAccordion(
+                                items: split.shared,
+                                newIDs: split.sharedNewIDs,
+                                label: "Shared"
+                            )
+                        }
                     }
                 }
             }
@@ -383,6 +397,8 @@ private struct AddedEventsColumn: View {
 private struct AnnouncementsAccordion: View {
     let items: [Announcement]
     let newIDs: Set<String>
+    /// Optional prefix on the header (e.g. "Shared" for the dedup'd bucket across kids).
+    var label: String? = nil
     @State private var expanded = false
     @State private var openIDs: Set<String> = []
 
@@ -393,7 +409,8 @@ private struct AnnouncementsAccordion: View {
             VStack(alignment: .leading, spacing: 4) {
                 Button { withAnimation { expanded.toggle() } } label: {
                     HStack(spacing: 4) {
-                        Text(items.count == 1 ? "1 announcement" : "\(items.count) announcements")
+                        let count = items.count == 1 ? "1 announcement" : "\(items.count) announcements"
+                        Text(label.map { "\($0): \(count)" } ?? count)
                             .font(.caption.weight(.semibold))
                         if newIDs.count > 0 { NewBadge() }
                         Spacer(minLength: 2)
@@ -482,4 +499,66 @@ private struct WarningsColumn: View {
             }
         }
     }
+}
+
+// MARK: - Announcement dedup across kids
+
+private struct AnnouncementSplit {
+    var perKid: [UUID: [Announcement]]
+    var perKidNewIDs: [UUID: Set<String>]
+    var shared: [Announcement]
+    var sharedNewIDs: Set<String>
+}
+
+/// Announcements that every kid has (same subject + date + start of body) are shown once,
+/// in a full-width "Shared" accordion. The rest stays per-child.
+@MainActor
+private func splitAnnouncements(ids: [UUID], summaries: [UUID: WeekSummary], model: AppModel) -> AnnouncementSplit {
+    func key(_ a: Announcement) -> String {
+        "\(a.subject)|\(a.startDay?.string ?? "")|\(a.text.prefix(120))"
+    }
+
+    var byKid: [UUID: [Announcement]] = [:]
+    for id in ids { byKid[id] = summaries[id]?.announcements ?? [] }
+
+    var keyToKids: [String: Set<UUID>] = [:]
+    var exemplar: [String: Announcement] = [:]
+    for id in ids {
+        for ann in byKid[id] ?? [] {
+            let k = key(ann)
+            keyToKids[k, default: []].insert(id)
+            if exemplar[k] == nil { exemplar[k] = ann }
+        }
+    }
+
+    let allKids = Set(ids)
+    var sharedKeys: Set<String> = []
+    var shared: [Announcement] = []
+    for (k, kids) in keyToKids where kids == allKids {
+        sharedKeys.insert(k)
+        shared.append(exemplar[k]!)
+    }
+    shared.sort { ($0.startDay?.string ?? "") > ($1.startDay?.string ?? "") }
+
+    var perKid: [UUID: [Announcement]] = [:]
+    var perKidNewIDs: [UUID: Set<String>] = [:]
+    for id in ids {
+        perKid[id] = (byKid[id] ?? []).filter { !sharedKeys.contains(key($0)) }
+        perKidNewIDs[id] = model.states[id]?.changes?.newAnnouncementIDs ?? []
+    }
+
+    var sharedNewIDs: Set<String> = []
+    for k in sharedKeys {
+        for id in ids {
+            let kidNew = model.states[id]?.changes?.newAnnouncementIDs ?? []
+            let kidAnns = byKid[id] ?? []
+            if kidAnns.contains(where: { key($0) == k && kidNew.contains($0.id) }) {
+                sharedNewIDs.insert(exemplar[k]!.id)
+                break
+            }
+        }
+    }
+
+    return AnnouncementSplit(perKid: perKid, perKidNewIDs: perKidNewIDs,
+                             shared: shared, sharedNewIDs: sharedNewIDs)
 }

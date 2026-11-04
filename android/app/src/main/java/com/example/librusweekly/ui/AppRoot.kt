@@ -349,14 +349,31 @@ private fun SideBySideScreen(state: AppUiState, onWeek: (Day) -> Unit, onSelectC
             }
         }
 
-        val annsByChild = accounts.associate { it.id to (summaries[it.id]?.announcements ?: emptyList()) }
-        if (annsByChild.values.any { it.isNotEmpty() }) {
+        val split = splitAnnouncements(
+            ids = accounts.map { it.id },
+            byKid = accounts.associate { it.id to (summaries[it.id]?.announcements ?: emptyList()) },
+            allChanges = state.allChanges
+        )
+        val hasPerKid = accounts.any { !(split.perKid[it.id].isNullOrEmpty()) }
+        if (hasPerKid || split.shared.isNotEmpty()) {
             item { SectionHeader(stringResource(R.string.announcements)) }
-            item {
-                SideColumns(accounts.map { it.id }) { id ->
+            if (hasPerKid) {
+                item {
+                    SideColumns(accounts.map { it.id }) { id ->
+                        AnnouncementsAccordion(
+                            items = split.perKid[id].orEmpty(),
+                            newIds = split.perKidNewIds[id].orEmpty(),
+                            label = null
+                        )
+                    }
+                }
+            }
+            if (split.shared.isNotEmpty()) {
+                item {
                     AnnouncementsAccordion(
-                        items = annsByChild[id].orEmpty(),
-                        newIds = state.allChanges[id]?.newAnnouncementIds.orEmpty()
+                        items = split.shared,
+                        newIds = split.sharedNewIds,
+                        label = "Shared"
                     )
                 }
             }
@@ -553,7 +570,7 @@ private fun lessonNote(l: Lesson): String? = when (l.kind) {
 }
 
 @Composable
-private fun AnnouncementsAccordion(items: List<Announcement>, newIds: Set<String>) {
+private fun AnnouncementsAccordion(items: List<Announcement>, newIds: Set<String>, label: String? = null) {
     if (items.isEmpty()) {
         Text(stringResource(R.string.none), style = MaterialTheme.typography.bodySmall,
              color = MaterialTheme.colorScheme.outline)
@@ -562,7 +579,8 @@ private fun AnnouncementsAccordion(items: List<Announcement>, newIds: Set<String
     var expanded by rememberSaveable { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         TextButton(onClick = { expanded = !expanded }, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)) {
-            Text(pl(items.size, "ogłoszenie", "ogłoszenia", "ogłoszeń"), fontWeight = FontWeight.SemiBold)
+            val count = pl(items.size, "ogłoszenie", "ogłoszenia", "ogłoszeń")
+            Text(if (label != null) "$label: $count" else count, fontWeight = FontWeight.SemiBold)
             if (newIds.isNotEmpty()) { Spacer(Modifier.width(4.dp)); NewBadge() }
             Spacer(Modifier.weight(1f))
             Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null,
@@ -842,4 +860,59 @@ private fun SettingsScreen(current: AppLanguage, onLanguage: (AppLanguage) -> Un
         Spacer(Modifier.height(8.dp))
         Text(stringResource(R.string.settings_footer), style = MaterialTheme.typography.bodySmall)
     }
+}
+
+// MARK: Announcement dedup across kids
+
+private data class AnnouncementSplit(
+    val perKid: Map<java.util.UUID, List<Announcement>>,
+    val perKidNewIds: Map<java.util.UUID, Set<String>>,
+    val shared: List<Announcement>,
+    val sharedNewIds: Set<String>
+)
+
+/// Announcements that every kid has (same subject + start date + head of body) are shown once
+/// in a full-width "Shared" accordion; the rest stays per-child.
+private fun splitAnnouncements(
+    ids: List<java.util.UUID>,
+    byKid: Map<java.util.UUID, List<Announcement>>,
+    allChanges: Map<java.util.UUID, UpdateChanges?>
+): AnnouncementSplit {
+    fun key(a: Announcement): String =
+        "${a.subject}|${a.startDay?.string.orEmpty()}|${a.text.take(120)}"
+
+    val keyToKids = mutableMapOf<String, MutableSet<java.util.UUID>>()
+    val exemplar = mutableMapOf<String, Announcement>()
+    for (id in ids) {
+        for (ann in byKid[id].orEmpty()) {
+            val k = key(ann)
+            keyToKids.getOrPut(k) { mutableSetOf() }.add(id)
+            if (k !in exemplar) exemplar[k] = ann
+        }
+    }
+
+    val allIds = ids.toSet()
+    val sharedKeys = keyToKids.filterValues { it == allIds }.keys
+    val shared = sharedKeys.mapNotNull { exemplar[it] }
+        .sortedByDescending { it.startDay?.string.orEmpty() }
+
+    val perKid = ids.associateWith { id ->
+        byKid[id].orEmpty().filterNot { key(it) in sharedKeys }
+    }
+    val perKidNewIds = ids.associateWith { id ->
+        allChanges[id]?.newAnnouncementIds.orEmpty()
+    }
+
+    val sharedNewIds = mutableSetOf<String>()
+    for (k in sharedKeys) {
+        for (id in ids) {
+            val kidNew = allChanges[id]?.newAnnouncementIds.orEmpty()
+            if (byKid[id].orEmpty().any { key(it) == k && it.id in kidNew }) {
+                exemplar[k]?.id?.let { sharedNewIds += it }
+                break
+            }
+        }
+    }
+
+    return AnnouncementSplit(perKid, perKidNewIds, shared, sharedNewIds)
 }
