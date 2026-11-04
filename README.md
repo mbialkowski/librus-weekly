@@ -139,11 +139,11 @@ Aplikacja nieoficjalna, niezwiązana z Librus sp. z o.o.
 
 ### 2026-11-04 — Plan zajęć
 - Aplikacja przemianowana na **Plan zajęć**, nowa ikona (kalendarz + ikonki uczniów).
+- **Przyklejony nagłówek z imieniem dziecka** nad listą — zostaje widoczny przy przewijaniu. Imię wyśrodkowane, bez znacznika „Zaktualizowano".
 - **Zakres godzin dnia** nad listą lekcji w kolumnie („7:45–13:05") — od razu widać, do kiedy dziecko jest w szkole.
 - **Szczegóły zastępstw** w widoku obok siebie: nota („Zastępstwo za …") plus (nauczyciel · sala) pod spodem.
-- **Ogłoszenia jako akordeon** w widoku obok siebie — rozwijają się w miejscu, zamiast przełączać na widok pojedynczego dziecka.
-- **Przyklejony nagłówek z imieniem dziecka** przy przewijaniu kolumn (iOS + Android); znacznik ostatniej aktualizacji zjeżdża razem z sekcją „Ten tydzień".
-- **Koniec z obcinaniem tekstu** — opisy sprawdzianów, treść błędów i ostrzeżeń zawijają się w pełni; da się je zaznaczyć i skopiować.
+- **Ogłoszenia jako akordeon** w kolumnie, rozwijany w miejscu. Ogłoszenia, które mają wszystkie dzieci (ten sam temat + data), lądują w osobnym akordeonie „Shared: N" na dole sekcji — raz zamiast N razy.
+- **Koniec z obcinaniem tekstu** — opisy sprawdzianów, treść błędów i ostrzeżeń oraz długie tytuły ogłoszeń zawijają się w pełni, do lewej; da się zaznaczyć i skopiować.
 - **Imiona zamiast „imię + nazwisko"** w tytule i menu.
 
 ### 2026-11-04 (wcześniej)
