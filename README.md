@@ -1,8 +1,8 @@
 # Librus Tygodniowy
 
-Tygodniowy podgląd Librus Synergia na własnym telefonie — oceny dodane w tym tygodniu, plan lekcji ze zmianami, sprawdziany i wydarzenia z kalendarza, szczęśliwy numerek i ogłoszenia szkolne. Dane są pobierane prosto z Librusa; hasła zostają w Pęku kluczy iOS (lub Android Keystore).
+**Tydzień Twojego dziecka w Librusie na jednym ekranie.** Co jest w planie, jakie nowe oceny, który sprawdzian, co odwołane, jakie ogłoszenia — bez klikania w cztery zakładki Synergii.
 
-Aplikacja do samodzielnego zbudowania — nic do pobrania ze sklepu, żadnego pośredniego serwera.
+Kilka minut i aplikacja jest gotowa. Działa tylko na Twoim telefonie — żadnego pośredniego serwera, żadnej analityki, żadnego konta w aplikacji do założenia.
 
 <table>
   <tr>
@@ -11,84 +11,92 @@ Aplikacja do samodzielnego zbudowania — nic do pobrania ze sklepu, żadnego po
   </tr>
   <tr>
     <td align="center"><sub>Tydzień jednego dziecka</sub></td>
-    <td align="center"><sub>Widok obok siebie dla rodzeństwa</sub></td>
+    <td align="center"><sub>Rodzeństwo obok siebie</sub></td>
   </tr>
 </table>
 
-## Co pokazuje
+## Dlaczego warto
 
-- **Podsumowanie tygodnia** — oceny dodane w tym tygodniu, sprawdziany i wydarzenia z kalendarza, szczęśliwy numerek, odwołane lekcje i zastępstwa.
-- **Wiele dzieci** — jeden login Synergia na dziecko, przełączanie z menu albo widok wszystkich obok siebie w kolumnach (iOS).
-- **„Co się zmieniło”** — przeciągnięcie w dół pobiera świeże dane i pokazuje, co jest nowe od ostatniej aktualizacji; nowe pozycje dostają znacznik NEW.
-- **Praca offline** — dane trzymane są lokalnie, więc aplikacja otwiera się z tym, co ostatnio pobrała, i nie łączy się z Librusem, dopóki o to nie poprosisz.
-- **Interfejs po polsku lub po angielsku** — wybierz w Ustawieniach (iOS) albo ustaw język telefonu (Android).
-- Orientacja pozioma i pionowa, jasny motyw.
+- **Wszystko w jednym widoku.** Oceny z tego tygodnia, lekcje ze zmianami, sprawdziany, zadania domowe, szczęśliwy numerek i ogłoszenia — bez przeklikiwania.
+- **Rodzeństwo obok siebie.** Widok kolumnowy pokazuje tydzień każdego dziecka na jednym ekranie. Jedno spojrzenie i wiesz, kto ma dziś co.
+- **„Co się zmieniło”.** Po odświeżeniu widzisz, co przybyło od ostatniej aktualizacji — nowe oceny, nowe sprawdziany, zmiany w planie. Oznaczone znacznikiem **NOWE**.
+- **Działa offline.** Ostatnio pobrane dane masz od razu po otwarciu aplikacji. Internet potrzebny tylko, kiedy chcesz świeże.
+- **Hasła tylko u Ciebie.** Trzymane w Pęku kluczy iOS (albo Android Keystore) — nigdzie indziej nie wychodzą.
+- **Twoja prywatność.** Nie ma konta w aplikacji, nie ma analityki, nie ma reklam. Tylko Ty i Librus.
+- **Polski albo angielski.** Przełącznik w Ustawieniach, osobno od języka telefonu.
 
-## Wymagania
+## W pięciu krokach — iOS
 
-### iOS
+Potrzebujesz Maca z Xcode i konta w Apple Developer Program.
 
-- Mac z **Xcode 16** lub nowszym.
-- Płatne członkostwo w **Apple Developer Program**. Dystrybucja przez TestFlight tego wymaga; uruchomienie na własnym telefonie dłużej niż 7 dni również.
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen): `brew install xcodegen`.
-
-### Android
-
-- **Android Studio** (dowolna nowsza wersja) lub `gradle` + Android SDK.
-- JDK 17+ (Android Studio ma własny).
-
-## Jak zbudować iOS
-
-### 1. Podpisywanie
-
-W Xcode otwórz **Ustawienia → Konta** i dodaj swoje Apple ID.
-
-Edytuj `ios/Config/Signing.xcconfig`:
-- `DEVELOPMENT_TEAM`: dziesięcioznakowy Team ID (Xcode → Ustawienia → Konta, albo developer.apple.com → Konto → Dane członkostwa).
-- `BUNDLE_ID`: unikalny identyfikator, np. `com.twojanazwa.librusweekly`.
-
-### 2. Wygeneruj i otwórz projekt
+### 1. Sklonuj i wygeneruj projekt
 
 ```bash
-cd ios
+git clone https://github.com/mbialkowski/librus-weekly.git
+cd librus-weekly/ios
+brew install xcodegen
 xcodegen generate
 open LibrusSummary.xcodeproj
 ```
 
-Wybierz iPhone albo symulator i naciśnij **Run**. Przy pierwszym uruchomieniu Xcode pobierze zależność SwiftSoup.
+### 2. Uzupełnij podpis
 
-### 3. Zaloguj dziecko
+W `ios/Config/Signing.xcconfig` wpisz dwie rzeczy:
+- `DEVELOPMENT_TEAM` — dziesięcioznakowy identyfikator zespołu z developer.apple.com → Account → Membership details (albo Xcode → Settings → Accounts → Twój Apple ID).
+- `BUNDLE_ID` — coś unikalnego, np. `com.twojanazwa.librusweekly`.
 
-Po pierwszym uruchomieniu aplikacja pokazuje ekran logowania. Wpisz login Synergia dziecka (`1234567u`) i hasło rodzica. Przycisk **Dodaj dziecko** w menu u góry po lewej służy do dodawania kolejnych.
+W Xcode zaloguj się na swoje Apple ID (**Settings → Accounts → +**).
 
-Hasła są przechowywane w Pęku kluczy iOS, wyłącznie na urządzeniu.
+### 3. Uruchom na telefonie
 
-### 4. (Opcjonalnie) TestFlight
+Podłącz iPhone, wybierz go w Xcode jako cel i naciśnij **Run**. Xcode pobierze zależności i zainstaluje aplikację. Na telefonie zaufaj swojemu profilowi deweloperskiemu (Ustawienia → Ogólne → VPN i Zarządzanie urządzeniem).
 
-Żeby zainstalować aplikację na większej liczbie urządzeń bez podłączania ich kablem:
+### 4. Zaloguj dziecko
 
-1. W [App Store Connect](https://appstoreconnect.apple.com) wybierz **Apps → + → New App** z tym samym Bundle ID. Platforma: iOS. Nazwa: cokolwiek unikalnego w całym App Store.
-2. W Xcode **Product → Archive**, potem w Organizerze **Distribute App → TestFlight Internal Only**. Albo z terminala:
+Otwórz aplikację, wpisz login Synergia (`1234567u`) i hasło rodzica. **Dodaj dziecko** w menu u góry po lewej dodaje kolejne.
+
+### 5. (Opcjonalnie) TestFlight
+
+Chcesz rozdać rodzinie i nie chce Ci się podłączać każdego telefonu? Zrób to raz przez TestFlight:
+
+1. W [App Store Connect](https://appstoreconnect.apple.com) **Apps → + → New App** z tym samym Bundle ID.
+2. W terminalu:
    ```bash
    cd ios && ./scripts/upload-testflight.sh
    ```
-3. W App Store Connect w sekcji **TestFlight → Internal Testing** utwórz grupę i dodaj testerów. Testerzy wewnętrzni nie przechodzą Beta App Review.
-4. Buildy TestFlight wygasają po 90 dniach — wyślij nowy przed terminem.
+3. W App Store Connect pod **TestFlight → Internal Testing** utwórz grupę i dodaj testerów.
 
-**Trzymaj to przy testerach wewnętrznych.** Librus wyrażał sprzeciw wobec aplikacji trzecich w publicznych sklepach.
+Buildy TestFlight wygasają po 90 dniach — wyślij nowy przed terminem. Zostań przy testerach wewnętrznych: Librus nie lubi aplikacji trzecich w publicznych sklepach.
 
-## Jak zbudować Androida
+## W trzech krokach — Android
+
+### 1. Sklonuj
 
 ```bash
-cd android
-./gradlew assembleDebug
+git clone https://github.com/mbialkowski/librus-weekly.git
+cd librus-weekly/android
 ```
 
-APK trafia do `app/build/outputs/apk/debug/app-debug.apk`. Zainstaluj go na telefonie przez `adb install` albo przez Android Studio.
+### 2. Zbuduj
 
-Więcej szczegółów (stan prac, jak dołączyć): [`android/README.md`](android/README.md).
+Najprościej w **Android Studio**: otwórz folder `android/`, poczekaj na synchronizację, naciśnij **Run**.
 
-## Jak rozmawia z Librusem
+Z terminala:
+```bash
+./gradlew assembleDebug
+```
+APK trafia do `app/build/outputs/apk/debug/app-debug.apk`.
+
+### 3. Zainstaluj i zaloguj dziecko
+
+```bash
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+Otwórz aplikację, wpisz login Synergia i hasło rodzica. **Dodaj dziecko** w menu u góry dodaje kolejne.
+
+Szczegóły (co dokładnie działa, co jeszcze nie): [`android/README.md`](android/README.md).
+
+## Co pobiera z Librusa
 
 - Obsługiwany jest tylko login **Synergia** (np. `1234567u`), nie e-mail Konta Librus.
 - Pobiera: oceny, plan lekcji (ze zmianami i odwołaniami), wydarzenia z kalendarza, zadania domowe, ogłoszenia, szczęśliwy numerek.
@@ -111,18 +119,18 @@ ios/
 
 android/
   app/src/main/java/com/example/librusweekly/
-    librus/                klient API Librus w Kotlinie (core, auth, api, synergia, models)
-    state/                 ViewModel, pamięć kont, logika tygodnia
-    ui/                    ekrany Compose (logowanie, tydzień, ustawienia)
+    librus/                klient API Librus w Kotlinie
+    state/                 ViewModel, pamięć kont, cache, logika tygodnia
+    ui/                    ekrany Compose
   app/src/main/res/        strings (en + pl), ikona, motyw
 
-docs/screenshots/          makiety pokazane w tym README
+docs/screenshots/          makiety z tego README
 ```
 
 ## Podziękowania i licencja
 
-Pakiet Swift `LibrusKit` w `ios/Packages/LibrusKit/` został przeportowany przez [wadamczewski/szkolny.eu-iOS](https://github.com/wadamczewski/szkolny.eu-iOS) z androidowego projektu [Szkolny.eu](https://github.com/szkolny-eu/szkolny-android), oba na GPL-3.0. Klient w Kotlinie (`android/app/src/main/java/com/example/librusweekly/librus/`) bazuje na tym samym kodzie. Podziękowania dla autorów.
+Pakiet Swift `LibrusKit` (`ios/Packages/LibrusKit/`) został przeportowany przez [wadamczewski/szkolny.eu-iOS](https://github.com/wadamczewski/szkolny.eu-iOS) z androidowego projektu [Szkolny.eu](https://github.com/szkolny-eu/szkolny-android), oba na GPL-3.0. Klient w Kotlinie bazuje na tym samym kodzie. Dziękuję autorom — bez ich pracy tej aplikacji by nie było.
 
-Repozytorium jest na licencji **GPL-3.0** (zobacz [`LICENSE`](LICENSE)). Możesz forkować, zmieniać, budować dla siebie, udostępniać własne zmiany — ale każda pochodna, którą rozpowszechniasz, też musi zostać na GPL-3.0 i zachować powyższe podziękowania.
+Repozytorium jest na licencji **GPL-3.0** (zobacz [`LICENSE`](LICENSE)). Możesz forkować, zmieniać, budować dla siebie i rozdawać — każda pochodna, którą rozpowszechniasz, też musi zostać na GPL-3.0 i zachować powyższe podziękowania.
 
 Aplikacja nieoficjalna, niezwiązana z Librus sp. z o.o.
