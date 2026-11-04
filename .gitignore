@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+ios/*.xcodeproj/
+ios/build/
+ios/Packages/LibrusKit/.build/
+ios/Packages/LibrusKit/.swiftpm/
+xcuserdata/
+DerivedData/
+.DS_Store
+ios/LibrusSummary/Resources/BuiltInAccounts.json

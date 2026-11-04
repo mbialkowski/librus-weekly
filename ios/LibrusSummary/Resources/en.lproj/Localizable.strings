@@ -1,0 +1,3 @@
+/* SwiftUI falls back to the key when no translation is present, so this file is intentionally empty.
+   The English wording lives inside Text("…") literals in the source.
+   Its presence enables English in the app language picker. */

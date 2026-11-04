@@ -1,0 +1,5 @@
+// Fill these in before archiving for TestFlight (see ../README.md).
+// Team ID: Xcode > Settings > Accounts > your Apple ID > team (10 characters).
+DEVELOPMENT_TEAM =
+// Must be globally unique and match the app record in App Store Connect.
+BUNDLE_ID = com.example.librusweekly

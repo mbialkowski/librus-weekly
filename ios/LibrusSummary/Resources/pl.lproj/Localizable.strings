@@ -1,0 +1,114 @@
+/* App shell */
+"Logging in to Librus…" = "Logowanie do Librusa…";
+"Librus Weekly" = "Librus Tygodniowy";
+"School Week" = "Tydzień szkolny";
+"Settings" = "Ustawienia";
+"Done" = "Gotowe";
+"OK" = "OK";
+"Cancel" = "Anuluj";
+"Language" = "Język";
+"System" = "Systemowy";
+"English" = "English";
+"Polski" = "Polski";
+"Changes apply immediately. “System” follows the device language." = "Zmiany wchodzą od razu. „Systemowy” używa języka urządzenia.";
+
+/* Login screen */
+"This week's grades, lessons, tests and announcements from Librus Synergia." = "Oceny, lekcje, sprawdziany i ogłoszenia z tego tygodnia z Librus Synergia.";
+"Automatic login failed. %@" = "Automatyczne logowanie nie powiodło się. %@";
+"Try again" = "Spróbuj ponownie";
+"Login (e.g. 1234567u)" = "Login (np. 1234567u)";
+"Password" = "Hasło";
+"Add child" = "Dodaj dziecko";
+"Log in" = "Zaloguj";
+"Synergia login" = "Logowanie Synergia";
+"Use the Synergia login, not the Konto Librus e-mail. Each child has its own parent login; you can add the others later and switch between them. Passwords are stored in the Keychain on this device only, because Librus sessions can't be renewed without them. Unofficial app, not affiliated with Librus." = "Użyj loginu Synergia, nie e-maila Konta Librus. Każde dziecko ma własny login rodzica — kolejne można dodać później i się między nimi przełączać. Hasła są przechowywane w Pęku kluczy wyłącznie na tym urządzeniu, ponieważ sesji Librusa nie można odnowić bez nich. Aplikacja nieoficjalna, niezwiązana z Librusem.";
+"Login failed" = "Logowanie nie powiodło się";
+
+/* Shell */
+"All children" = "Wszystkie dzieci";
+"this child" = "to dziecko";
+"Remove %@ and delete the saved password?" = "Usunąć %@ i skasować zapisane hasło?";
+"Log out and delete the saved password?" = "Wylogować i skasować zapisane hasło?";
+"Remove" = "Usuń";
+"Log out" = "Wyloguj";
+"Remove this child" = "Usuń to dziecko";
+"Get fresh data" = "Odśwież";
+"Side by side" = "Obok siebie";
+
+/* Week navigator */
+"This week" = "Ten tydzień";
+"NEW" = "NOWE";
+"Updated %@" = "Zaktualizowano %@";
+"No changes since %@." = "Brak zmian od %@.";
+"Showing saved data. Tap %@ to get fresh data and see what changed." = "Dane z pamięci. Dotknij %@, aby pobrać świeże i zobaczyć co się zmieniło.";
+
+/* Overview tiles / counts */
+"new grade" = "nowa ocena";
+"new grades" = "nowe oceny";
+"test/event" = "sprawdzian";
+"tests/events" = "sprawdziany";
+"newly added" = "dodane";
+"cancelled" = "odwołana";
+"other change" = "inna zmiana";
+"other changes" = "inne zmiany";
+"notice" = "ogłoszenie";
+"notices" = "ogłoszenia";
+"lucky %@" = "numerek %@";
+
+/* Sections */
+"New grades" = "Nowe oceny";
+"Cancelled lessons" = "Odwołane lekcje";
+"Added to the calendar this week" = "Dodane do kalendarza w tym tygodniu";
+"Added this week" = "Dodane w tym tygodniu";
+"Announcements" = "Ogłoszenia";
+"Not everything loaded" = "Nie wszystko się załadowało";
+
+/* Day column fallbacks */
+"No lessons" = "Brak lekcji";
+"Loading…" = "Ładowanie…";
+"None" = "Brak";
+"Subject" = "Przedmiot";
+"Lesson" = "Lekcja";
+"Child" = "Dziecko";
+
+/* Change labels */
+"1 new grade" = "1 nowa ocena";
+"%lld new grades" = "%lld nowych ocen";
+"1 new announcement" = "1 nowe ogłoszenie";
+"%lld new announcements" = "%lld nowych ogłoszeń";
+"1 announcement" = "1 ogłoszenie";
+"%lld announcements" = "%lld ogłoszeń";
+"New" = "Nowe";
+"Changed" = "Zmiana";
+"and %lld more new" = "i jeszcze %lld nowych";
+
+/* Lesson changes */
+"Cancelled" = "Odwołana";
+"Substitution" = "Zastępstwo";
+"Substitution for %@" = "Zastępstwo za %@";
+"Moved" = "Przeniesiona";
+"Moved to %@" = "Przeniesiona na %@";
+"Moved from %@" = "Przeniesiona z %@";
+", lesson %lld" = ", lekcja %lld";
+
+/* Event details */
+"room %@" = "sala %@";
+"added %@" = "dodane %@";
+"lesson %lld" = "lekcja %lld";
+
+/* Grade details */
+"weight %@" = "waga %@";
+"improvement" = "poprawa";
+"predicted semester grade" = "przewidywana ocena śródroczna";
+"semester grade" = "ocena śródroczna";
+"predicted final grade" = "przewidywana ocena końcowa";
+"final grade" = "ocena końcowa";
+
+/* Side-by-side */
+"Tap a name to see that child's full week." = "Dotknij imienia, aby zobaczyć cały tydzień dziecka.";
+"Lucky number %lld (%@)" = "Szczęśliwy numerek %lld (%@)";
+"No changes at last update" = "Brak zmian przy ostatniej aktualizacji";
+"%lld changed at last update" = "%lld zmian przy ostatniej aktualizacji";
+
+/* Warnings */
+"Homework: %@" = "Zadania domowe: %@";
