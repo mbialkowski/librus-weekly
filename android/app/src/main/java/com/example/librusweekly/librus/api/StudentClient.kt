@@ -5,7 +5,10 @@ import com.example.librusweekly.librus.core.Json
 import com.example.librusweekly.librus.core.LibrusError
 import com.example.librusweekly.librus.models.*
 import com.example.librusweekly.librus.synergia.CredentialSynergiaSession
+import com.example.librusweekly.librus.synergia.MessageFolder
+import com.example.librusweekly.librus.synergia.MessageDetail
 import com.example.librusweekly.librus.synergia.SynergiaHomework
+import com.example.librusweekly.librus.synergia.SynergiaMessages
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import java.util.Date
@@ -16,6 +19,10 @@ class StudentClient(val profile: StoredAccount) {
     val session = CredentialSynergiaSession(profile.synergiaLogin, profile.synergiaPassword)
     val api = LibrusApi(session)
     val homework = SynergiaHomework(session)
+    val messages = SynergiaMessages(session)
+
+    suspend fun messageDetail(id: String): MessageDetail =
+        messages.message(id, MessageFolder.INBOX)
     private var dict = LibrusParsers.Dictionaries()
 
     /// Full refresh. Individual sections may fail (e.g. lucky number disabled in a school);
@@ -90,6 +97,14 @@ class StudentClient(val profile: StoredAccount) {
             warnings.add("Zadania domowe: ${e.message}")
         } catch (e: Exception) {
             warnings.add("Zadania domowe: ${e.message ?: e::class.java.simpleName}")
+        }
+
+        try {
+            data.messages = messages.messages(MessageFolder.INBOX, page = 0)
+        } catch (e: LibrusError) {
+            warnings.add("Wiadomości: ${e.message}")
+        } catch (e: Exception) {
+            warnings.add("Wiadomości: ${e.message ?: e::class.java.simpleName}")
         }
 
         data.warnings = warnings

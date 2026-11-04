@@ -70,9 +70,8 @@ fun AppRoot(vm: AppViewModel = viewModel()) {
                 !state.isLoggedIn -> LoginScreen(isAdding = false) { login, pw, onError ->
                     vm.addAccount(login, pw, onError)
                 }
-                state.showsSideBySide -> SideBySideScreen(state = state, onWeek = vm::setWeek, onSelectChild = { id ->
-                    vm.setSideBySide(false); vm.select(id)
-                })
+                state.showsSideBySide -> SideBySideScreen(state = state, vm = vm, onWeek = vm::setWeek,
+                    onSelectChild = { id -> vm.setSideBySide(false); vm.select(id) })
                 else -> WeekScreen(state = state, onWeek = vm::setWeek)
             }
         }
@@ -282,7 +281,7 @@ private fun WeekScreen(state: AppUiState, onWeek: (Day) -> Unit) {
 // MARK: Side by side
 
 @Composable
-private fun SideBySideScreen(state: AppUiState, onWeek: (Day) -> Unit, onSelectChild: (java.util.UUID) -> Unit) {
+private fun SideBySideScreen(state: AppUiState, vm: AppViewModel, onWeek: (Day) -> Unit, onSelectChild: (java.util.UUID) -> Unit) {
     val accounts = state.accounts
     val summaries: Map<java.util.UUID, WeekSummary> = accounts.mapNotNull { a ->
         val data = state.datas[a.id] ?: return@mapNotNull null
@@ -345,6 +344,38 @@ private fun SideBySideScreen(state: AppUiState, onWeek: (Day) -> Unit, onSelectC
                     val s = summaries[id]
                     val highlighted = state.allChanges[id]?.highlightedEventIds.orEmpty()
                     DayColumn(s, day, highlighted)
+                }
+            }
+        }
+
+        // Messages section — above Announcements, same shared-across-kids dedup.
+        val msgSplit = splitMessages(
+            ids = accounts.map { it.id },
+            byKid = accounts.associate { it.id to (summaries[it.id]?.messages ?: emptyList()) }
+        )
+        val hasPerKidMsg = accounts.any { !(msgSplit.perKid[it.id].isNullOrEmpty()) }
+        if (hasPerKidMsg || msgSplit.shared.isNotEmpty()) {
+            item { SectionHeader("Wiadomości") }
+            if (hasPerKidMsg) {
+                item {
+                    SideColumns(accounts.map { it.id }) { id ->
+                        MessagesAccordion(
+                            items = msgSplit.perKid[id].orEmpty(),
+                            ownerId = id,
+                            label = null,
+                            vm = vm
+                        )
+                    }
+                }
+            }
+            if (msgSplit.shared.isNotEmpty()) {
+                item {
+                    MessagesAccordion(
+                        items = msgSplit.shared,
+                        ownerId = accounts.first().id,
+                        label = "Shared",
+                        vm = vm
+                    )
                 }
             }
         }
@@ -594,25 +625,39 @@ private fun AnnouncementsAccordion(items: List<Announcement>, newIds: Set<String
     }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun AnnouncementAccordionRow(a: Announcement, isNew: Boolean) {
-    var open by rememberSaveable(a.id) { mutableStateOf(false) }
+    var showSheet by rememberSaveable(a.id) { mutableStateOf(false) }
     Column(Modifier.padding(start = 4.dp)) {
-        TextButton(onClick = { open = !open }, contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)) {
+        TextButton(onClick = { showSheet = true },
+                   contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)) {
             Text(a.subject, style = MaterialTheme.typography.bodySmall,
                  fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             if (isNew) { Spacer(Modifier.width(4.dp)); NewBadge() }
-            Icon(if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null,
-                 modifier = Modifier.size(14.dp))
+            Icon(Icons.Default.ChevronRight, null, modifier = Modifier.size(14.dp))
         }
         val meta = listOfNotNull(a.author, a.startDay?.string).joinToString(" · ")
         if (meta.isNotEmpty()) {
             Text(meta, style = MaterialTheme.typography.labelSmall,
                  color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(start = 2.dp))
         }
-        if (open) {
-            Text(a.text, style = MaterialTheme.typography.bodySmall,
-                 modifier = Modifier.padding(horizontal = 2.dp, vertical = 2.dp))
+    }
+    if (showSheet) {
+        ModalBottomSheet(onDismissRequest = { showSheet = false }) {
+            Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),
+                   verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(a.subject, style = MaterialTheme.typography.titleMedium,
+                     fontWeight = FontWeight.SemiBold)
+                val meta = listOfNotNull(a.author, a.startDay?.string).joinToString(" · ")
+                if (meta.isNotEmpty()) {
+                    Text(meta, style = MaterialTheme.typography.bodySmall,
+                         color = MaterialTheme.colorScheme.outline)
+                }
+                HorizontalDivider()
+                Text(a.text, style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(16.dp))
+            }
         }
     }
 }
@@ -915,4 +960,161 @@ private fun splitAnnouncements(
     }
 
     return AnnouncementSplit(perKid, perKidNewIds, shared, sharedNewIds)
+}
+
+// MARK: Messages — dedup + accordion + popup
+
+private data class MessageSplit(
+    val perKid: Map<java.util.UUID, List<com.example.librusweekly.librus.synergia.MessageSummary>>,
+    val shared: List<com.example.librusweekly.librus.synergia.MessageSummary>
+)
+
+/// Messages that arrived with the same subject, sender and day for every child are treated as one.
+private fun splitMessages(
+    ids: List<java.util.UUID>,
+    byKid: Map<java.util.UUID, List<com.example.librusweekly.librus.synergia.MessageSummary>>
+): MessageSplit {
+    fun key(m: com.example.librusweekly.librus.synergia.MessageSummary): String =
+        "${m.subject}|${m.correspondent}|${m.date.take(10)}"
+
+    val keyToKids = mutableMapOf<String, MutableSet<java.util.UUID>>()
+    val exemplar = mutableMapOf<String, com.example.librusweekly.librus.synergia.MessageSummary>()
+    for (id in ids) {
+        for (m in byKid[id].orEmpty()) {
+            val k = key(m)
+            keyToKids.getOrPut(k) { mutableSetOf() }.add(id)
+            if (k !in exemplar) exemplar[k] = m
+        }
+    }
+    val allIds = ids.toSet()
+    val sharedKeys = keyToKids.filterValues { it == allIds }.keys
+    val shared = sharedKeys.mapNotNull { exemplar[it] }.sortedByDescending { it.date }
+    val perKid = ids.associateWith { id ->
+        byKid[id].orEmpty().filterNot { key(it) in sharedKeys }
+    }
+    return MessageSplit(perKid, shared)
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun MessagesAccordion(
+    items: List<com.example.librusweekly.librus.synergia.MessageSummary>,
+    ownerId: java.util.UUID,
+    label: String?,
+    vm: AppViewModel
+) {
+    if (items.isEmpty()) {
+        Text(stringResource(R.string.none), style = MaterialTheme.typography.bodySmall,
+             color = MaterialTheme.colorScheme.outline)
+        return
+    }
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        TextButton(onClick = { expanded = !expanded },
+                   contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)) {
+            val count = pl(items.size, "wiadomość", "wiadomości", "wiadomości")
+            Text(if (label != null) "$label: $count" else count, fontWeight = FontWeight.SemiBold)
+            val unread = items.count { it.unread }
+            if (unread > 0) { Spacer(Modifier.width(4.dp)); NewBadge() }
+            Spacer(Modifier.weight(1f))
+            Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null,
+                 modifier = Modifier.size(16.dp))
+        }
+        if (expanded) {
+            items.forEach { m ->
+                MessageRow(m, ownerId, vm)
+            }
+        }
+    }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun MessageRow(
+    m: com.example.librusweekly.librus.synergia.MessageSummary,
+    ownerId: java.util.UUID,
+    vm: AppViewModel
+) {
+    var showSheet by rememberSaveable(m.id) { mutableStateOf(false) }
+    Column(Modifier.padding(start = 4.dp)) {
+        TextButton(onClick = { showSheet = true },
+                   contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)) {
+            Text(m.subject, style = MaterialTheme.typography.bodySmall,
+                 fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            if (m.unread) { Spacer(Modifier.width(4.dp)); NewBadge() }
+            if (m.hasAttachments) {
+                Spacer(Modifier.width(4.dp))
+                Icon(Icons.Default.AttachFile, null, modifier = Modifier.size(12.dp),
+                     tint = MaterialTheme.colorScheme.outline)
+            }
+            Icon(Icons.Default.ChevronRight, null, modifier = Modifier.size(14.dp))
+        }
+        Text("${m.correspondent} · ${m.date}",
+             style = MaterialTheme.typography.labelSmall,
+             color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(start = 2.dp))
+    }
+    if (showSheet) {
+        MessageSheet(m, ownerId, vm) { showSheet = false }
+    }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun MessageSheet(
+    m: com.example.librusweekly.librus.synergia.MessageSummary,
+    ownerId: java.util.UUID,
+    vm: AppViewModel,
+    onDismiss: () -> Unit
+) {
+    var detail by remember { mutableStateOf<com.example.librusweekly.librus.synergia.MessageDetail?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var loading by remember { mutableStateOf(true) }
+    LaunchedEffect(m.id, ownerId) {
+        try { detail = vm.fetchMessageDetail(ownerId, m.id) }
+        catch (e: Throwable) { error = e.message ?: e::class.java.simpleName }
+        loading = false
+    }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),
+               verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(m.subject, style = MaterialTheme.typography.titleMedium,
+                 fontWeight = FontWeight.SemiBold)
+            Text("${m.correspondent} · ${m.date}",
+                 style = MaterialTheme.typography.bodySmall,
+                 color = MaterialTheme.colorScheme.outline)
+            HorizontalDivider()
+            when {
+                loading -> Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+                error != null -> Text(error!!, color = MaterialTheme.colorScheme.error)
+                detail != null -> {
+                    Text(stripHtml(detail!!.bodyHtml), style = MaterialTheme.typography.bodyMedium)
+                    if (detail!!.attachments.isNotEmpty()) {
+                        HorizontalDivider()
+                        Text("Attachments", style = MaterialTheme.typography.labelMedium,
+                             fontWeight = FontWeight.SemiBold)
+                        detail!!.attachments.forEach { a ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.AttachFile, null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text(a.filename, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+private fun stripHtml(html: String): String {
+    var s = html
+    s = s.replace(Regex("""<br\s*/?>""", RegexOption.IGNORE_CASE), "\n")
+    s = s.replace(Regex("""</p>""", RegexOption.IGNORE_CASE), "\n\n")
+    s = s.replace(Regex("""<[^>]+>"""), "")
+    s = s.replace("&nbsp;", " ").replace("&amp;", "&")
+        .replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"")
+    return s.trim()
 }

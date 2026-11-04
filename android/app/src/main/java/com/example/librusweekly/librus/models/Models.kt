@@ -194,6 +194,7 @@ data class StudentData(
     var attendance: List<AttendanceEntry> = emptyList(),
     var notices: List<Notice> = emptyList(),
     var announcements: List<Announcement> = emptyList(),
+    var messages: List<com.example.librusweekly.librus.synergia.MessageSummary> = emptyList(),
     var luckyNumber: LuckyNumber? = null,
     var timetable: MutableMap<String, List<TimetableDay>> = mutableMapOf(),
     var warnings: MutableList<String> = mutableListOf()

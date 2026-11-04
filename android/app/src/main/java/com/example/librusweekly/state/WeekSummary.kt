@@ -49,6 +49,7 @@ class WeekSummary(start: Day, data: StudentData, timetable: List<TimetableDay>?)
     val cancelled: List<Lesson>
     val addedEvents: List<EventItem>
     val announcements: List<Announcement>
+    val messages: List<com.example.librusweekly.librus.synergia.MessageSummary>
     val luckyNumber: LuckyNumber?
 
     init {
@@ -91,6 +92,10 @@ class WeekSummary(start: Day, data: StudentData, timetable: List<TimetableDay>?)
             (a.startDay == null || a.startDay <= end) &&
                 (a.endDay == null || a.endDay >= start) &&
                 (a.startDay == null || a.startDay >= cutoff)
+        }
+        messages = data.messages.filter { m ->
+            val day = Day.of(m.date.take(10)) ?: return@filter true
+            day >= cutoff
         }
         luckyNumber = data.luckyNumber?.takeIf { it.day >= start && it.day <= end }
     }

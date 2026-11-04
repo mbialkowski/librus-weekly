@@ -126,6 +126,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /// Fetches the full body of a Synergia message on demand (used by the message sheet).
+    suspend fun fetchMessageDetail(childId: UUID, messageId: String):
+        com.example.librusweekly.librus.synergia.MessageDetail {
+        val child = children[childId] ?: throw com.example.librusweekly.librus.core.LibrusError.NotLoggedIn
+        return child.client.messageDetail(messageId)
+    }
+
     fun removeCurrent() {
         val id = _state.value.selectedId ?: return
         children.remove(id)?.let { cache.remove(id) }
