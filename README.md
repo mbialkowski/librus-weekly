@@ -72,6 +72,8 @@ Buildy TestFlight wygasają po 90 dniach — wyślij nowy przed terminem. Zosta�
 
 ## W trzech krokach — Android
 
+> **Nie programujesz?** Skorzystaj z [instrukcji krok po kroku (PDF)](docs/instrukcja-android.pdf). Podłączasz telefon kablem i wklejasz gotowe polecenie, a aplikację zbuduje i zainstaluje asystent AI (polecany Claude Code albo bezpłatny Codex).
+
 ### 1. Sklonuj
 
 ```bash
@@ -138,6 +140,9 @@ Repozytorium jest na licencji **GPL-3.0** (zobacz [`LICENSE`](LICENSE)). Możesz
 Aplikacja nieoficjalna, niezwiązana z Librus sp. z o.o.
 
 ## Co nowego
+
+### 2026-11-05 — Instrukcja dla początkujących
+- [Instrukcja PDF](docs/instrukcja-android.pdf): instalacja na Androidzie bez programowania. Aplikację buduje i wgrywa na telefon przez USB asystent AI (Claude Code albo bezpłatny Codex) na podstawie gotowego polecenia do wklejenia.
 
 ### 2026-11-04 — Plan zajęć
 - Aplikacja przemianowana na **Plan zajęć**, nowa ikona (kalendarz + ikonki uczniów).
